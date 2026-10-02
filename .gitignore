@@ -1,0 +1,29 @@
+# 依赖与构建产物
+node_modules/
+dist/
+build/
+out/
+target/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 环境与密钥
+.env
+.env.*
+*.local
+
+# 日志与缓存
+*.log
+.cache/
+.pytest_cache/
+.mypy_cache/
