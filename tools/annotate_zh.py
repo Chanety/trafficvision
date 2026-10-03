@@ -84,6 +84,7 @@ class Canvas(QWidget):
         self.pan_offset_start = QPoint(0, 0)
         self.space_held = False
         self.history: list[list[list[float]]] = []
+        self.user_zoomed = False          # 用户手动缩放后，窗口改变大小时不再自动适应
 
     def push_history(self) -> None:
         """在修改前记录快照，供 Ctrl+Z 撤销。"""
@@ -109,9 +110,16 @@ class Canvas(QWidget):
         self.pixmap = QPixmap(str(path)) if path else None
         self.boxes = boxes
         self.selected = -1
+        self.user_zoomed = False
         self.fit_window()
         self.update()
         self.window.refresh_status()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        """窗口尺寸变化时自动重新适应（除非用户已手动缩放）。"""
+        if not self.user_zoomed:
+            self.fit_window()
+        super().resizeEvent(event)
 
     def fit_window(self) -> None:
         w, h = self.image_size()
@@ -170,6 +178,7 @@ class Canvas(QWidget):
             return
         cursor = event.pos()
         img_x, img_y = self.to_image(cursor)
+        self.user_zoomed = True
         self.scale *= 1.15 ** steps
         self.scale = max(0.05, min(20.0, self.scale))
         self.offset = QPoint(int(cursor.x() - img_x * self.scale),
@@ -340,7 +349,7 @@ class Canvas(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("交通视频标注复核工具")
+        self.setWindowTitle("交通标注工具 · 中文版 v2")
         self.images = sorted(IMAGES.glob("*.jpg"))
         if not self.images:
             raise SystemExit(f"没有找到图片，请先运行 bench/make_label_set.py：{IMAGES}")
@@ -352,36 +361,116 @@ class MainWindow(QMainWindow):
         self.canvas = Canvas(self)
         central = QWidget()
         layout = QVBoxLayout(central)
-        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
 
+        # ---- 顶部：类别选择 ----
         top = QHBoxLayout()
-        top.addWidget(QLabel("新框类别："))
+        top.setSpacing(6)
+        top_label = QLabel("新框类别")
+        top_label.setStyleSheet("font-weight: bold;")
+        top.addWidget(top_label)
         self.class_buttons = []
         for i, name in enumerate(CLASS_CN):
-            btn = QPushButton(f"{i + 1} {name}")
+            color = CLASS_COLORS[i].name()
+            btn = QPushButton(f"{i + 1}  {name}")
             btn.setCheckable(True)
+            btn.setMinimumHeight(34)
+            btn.setMinimumWidth(96)
+            btn.setStyleSheet(
+                f"QPushButton{{border:2px solid {color}; border-radius:6px;"
+                f" padding:4px 10px; font-size:13px; color:#eaeaea;}}"
+                f"QPushButton:checked{{background:{color}; color:#101010; font-weight:bold;}}"
+            )
             btn.clicked.connect(lambda _, idx=i: self.set_class(idx))
             top.addWidget(btn)
             self.class_buttons.append(btn)
         top.addStretch(1)
+        for text, func in (("放大", lambda: self.zoom(1.25)),
+                           ("缩小", lambda: self.zoom(0.8)),
+                           ("适应窗口", lambda: self.canvas.fit_window()),
+                           ("原始大小", self.zoom_reset)):
+            btn = QPushButton(text)
+            btn.setMinimumHeight(34)
+            btn.clicked.connect(func)
+            top.addWidget(btn)
         layout.addLayout(top)
-        layout.addWidget(self.canvas, 1)
 
+        # ---- 中部：画布 + 右侧信息栏 ----
+        middle = QHBoxLayout()
+        middle.setSpacing(8)
+        middle.addWidget(self.canvas, 1)
+        panel = QWidget()
+        panel.setFixedWidth(250)
+        panel_layout = QVBoxLayout(panel)
+        panel_layout.setContentsMargins(10, 10, 10, 10)
+        panel_layout.setSpacing(10)
+        self.panel_title = QLabel("当前图片")
+        self.panel_title.setStyleSheet("font-weight:bold; font-size:14px;")
+        self.panel_info = QLabel()
+        self.panel_info.setWordWrap(True)
+        self.panel_info.setStyleSheet("font-size:13px; line-height:150%;")
+        self.panel_counts = QLabel()
+        self.panel_counts.setWordWrap(True)
+        self.panel_counts.setStyleSheet("font-size:13px;")
+        hint = QLabel(
+            "操作方式\n"
+            "滚轮　　以光标为中心缩放\n"
+            "中键 / 空格+左键　平移\n"
+            "左键空白处拖动　画新框\n"
+            "点框 / 拖框　　选中 / 移动\n"
+            "数字 1~6　　切换类别\n"
+            "R　　清理重叠行人框\n"
+            "Delete　　删除选中框\n"
+            "Ctrl+Z　　撤销\n"
+            "A / D　　上一张 / 下一张\n"
+            "Ctrl+S　　保存\n"
+            "F　　适应窗口"
+        )
+        hint.setStyleSheet("font-size:12px; color:#9fd0ff; line-height:160%;")
+        panel_layout.addWidget(self.panel_title)
+        panel_layout.addWidget(self.panel_info)
+        panel_layout.addWidget(self.panel_counts)
+        panel_layout.addStretch(1)
+        panel_layout.addWidget(hint)
+        middle.addWidget(panel)
+        layout.addLayout(middle, 1)
+
+        # ---- 底部：导航与状态 ----
         bottom = QHBoxLayout()
         self.info = QLabel()
-        bottom.addWidget(self.info)
-        bottom.addStretch(1)
+        self.info.setStyleSheet("font-size:13px;")
+        bottom.addWidget(self.info, 1)
         for text, func in (("上一张 (A)", self.prev_image),
                            ("下一张 (D)", self.next_image),
-                           ("保存 (Ctrl+S)", self.save),
-                           ("适应窗口 (F)", lambda: self.canvas.fit_window())):
+                           ("保存 (Ctrl+S)", self.save)):
             btn = QPushButton(text)
+            btn.setMinimumHeight(34)
+            btn.setMinimumWidth(120)
             btn.clicked.connect(func)
             bottom.addWidget(btn)
         layout.addLayout(bottom)
         self.setCentralWidget(central)
         self.set_class(0)
         self.load_image()
+
+    def zoom(self, factor: float) -> None:
+        """按钮缩放：以画布中心为基准。"""
+        self.canvas.user_zoomed = True
+        center = QPoint(self.canvas.width() // 2, self.canvas.height() // 2)
+        img_x, img_y = self.canvas.to_image(center)
+        self.canvas.scale = max(0.05, min(20.0, self.canvas.scale * factor))
+        self.canvas.offset = QPoint(int(center.x() - img_x * self.canvas.scale),
+                                    int(center.y() - img_y * self.canvas.scale))
+        self.canvas.update()
+        self.refresh_status()
+
+    def zoom_reset(self) -> None:
+        self.canvas.user_zoomed = True
+        self.canvas.scale = 1.0
+        self.canvas.offset = QPoint(0, 0)
+        self.canvas.update()
+        self.refresh_status()
 
     # ---------- 数据读写 ----------
     def label_path(self) -> Path:
@@ -452,6 +541,24 @@ class MainWindow(QMainWindow):
         if extra:
             text += f" · {extra}"
         self.info.setText(text)
+        state_color = "#ff9f43" if self.dirty else "#4cd137"
+        self.info.setStyleSheet(f"font-size:13px; color:{state_color};")
+
+        # 右侧面板
+        stem = self.images[self.index].stem
+        source = stem.split("_f")[0].replace("VID_", "")
+        frame_no = stem.split("_f")[-1]
+        self.panel_info.setText(
+            f"图像：{name}\n来源视频：{source}\n帧号：{frame_no}\n"
+            f"尺寸：{self.canvas.image_size()[0]} × {self.canvas.image_size()[1]}\n"
+            f"缩放：{self.canvas.scale * 100:.0f}%\n"
+            f"选中：{'第 ' + str(self.canvas.selected + 1) + ' 个框' if self.canvas.selected >= 0 else '无'}"
+        )
+        rows = [f'<span style="color:{CLASS_COLORS[k].name()}">■</span> '
+                f"{CLASS_CN[k]}：{v}" for k, v in sorted(cls_counts.items())]
+        self.panel_counts.setText(
+            f'<b>共 {n} 个框</b><br>' + ("<br>".join(rows) if rows else "（本图暂无标注）")
+        )
 
     # ---------- 快捷键 ----------
     def keyPressEvent(self, event) -> None:  # noqa: N802
@@ -471,9 +578,19 @@ class MainWindow(QMainWindow):
 
 def main() -> None:
     app = QApplication(sys.argv)
+    # 内置深色样式：不依赖第三方主题包，避免缓存目录权限问题
+    app.setStyleSheet(
+        "QMainWindow, QWidget{background:#232629; color:#e8e8e8;}"
+        "QPushButton{background:#34383c; border:1px solid #4d5157; border-radius:6px;"
+        " padding:6px 14px; font-size:13px;}"
+        "QPushButton:hover{background:#41464b;}"
+        "QPushButton:pressed{background:#2b2f33;}"
+        "QLabel{color:#e8e8e8;}"
+    )
     window = MainWindow()
-    window.resize(1280, 860)
+    window.resize(1440, 900)
     window.show()
+    window.canvas.fit_window()
     sys.exit(app.exec_())
 
 
