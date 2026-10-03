@@ -216,7 +216,50 @@ class TrackMotion:
         return float(np.hypot(v[0], v[1]))
 
     def is_predictable(self) -> bool:
-        return self.frames >= MIN_TRACK_AGE and self.speed >= MIN_SPEED_PX_S
+        return (
+            self.frames >= MIN_TRACK_AGE
+            and self.speed >= MIN_SPEED_PX_S
+            and self.quality_ok()
+        )
+
+    def quality_ok(self) -> bool:
+        """轨迹可信度门控。
+
+        退化检测框（例如把多个目标并成一个大框）会让框中心剧烈摆动，
+        进而污染速度与航向估计。这类轨迹不能用于预判，也不应计入统计。
+
+        判据：
+          1. 框的高宽比在合理范围内（排除细长/异常框）
+          2. 单帧框尺寸变化不超过 5%（退化框会剧烈伸缩）
+          3. 框面积不超过画面的 30%
+          4. 速度不超过物理上限（超过说明发生了 ID 跳变）
+        """
+        if len(self.samples) < MIN_TRACK_AGE:
+            return False
+        w = np.array([s[3] for s in self.samples], dtype=float)
+        h = np.array([s[4] for s in self.samples], dtype=float)
+        if h.mean() <= 1.0 or w.mean() <= 1.0:
+            return False
+
+        aspect = float(w.mean() / h.mean())
+        if not (0.2 <= aspect <= 6.0):
+            return False
+
+        dw = np.abs(np.diff(w)) / np.maximum(w[:-1], 1.0)
+        dh = np.abs(np.diff(h)) / np.maximum(h[:-1], 1.0)
+        if dw.size and float(np.median(dw)) > 0.05:
+            return False
+        if dh.size and float(np.median(dh)) > 0.05:
+            return False
+
+        if self.frame_w and self.frame_h:
+            max_ratio = 0.30
+            if float((w.mean() * h.mean()) / (self.frame_w * self.frame_h)) > max_ratio:
+                return False
+
+        if self.speed > 2500.0:
+            return False
+        return True
 
     def predict_box(self, horizon: float) -> tuple[float, float, float, float] | None:
         """返回预判时刻的包围框（沿用当前框大小）。"""
