@@ -24,6 +24,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from trafficvision.config import DEFAULT_CLASSES  # noqa: E402
+from trafficvision.labelrules import suppress_riders  # noqa: E402
 
 VIDEO_EXT = {".mp4", ".mov", ".avi", ".mkv", ".m4v"}
 
@@ -106,7 +107,7 @@ def main() -> None:
             cv2.imwrite(str(image_path), frame, [cv2.IMWRITE_JPEG_QUALITY, 92])
 
             h, w = frame.shape[:2]
-            lines = []
+            boxes = []
             if res.boxes is not None and len(res.boxes):
                 for i in range(len(res.boxes)):
                     cls_name = res.names[int(res.boxes.cls[i])]
@@ -114,11 +115,11 @@ def main() -> None:
                         continue
                     cid = names.index(cls_name)
                     x1, y1, x2, y2 = (float(v) for v in res.boxes.xyxy[i])
-                    cx = (x1 + x2) / 2 / w
-                    cy = (y1 + y2) / 2 / h
-                    bw = (x2 - x1) / w
-                    bh = (y2 - y1) / h
-                    lines.append(f"{cid} {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
+                    boxes.append([float(cid), ((x1 + x2) / 2) / w, ((y1 + y2) / 2) / h,
+                                  (x2 - x1) / w, (y2 - y1) / h])
+            # 标注规则：先载具，后行人（删掉骑车人/驾驶位里的人）
+            boxes = suppress_riders(boxes)
+            lines = [f"{int(b[0])} {b[1]:.6f} {b[2]:.6f} {b[3]:.6f} {b[4]:.6f}" for b in boxes]
             label_path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
             manifest.append({

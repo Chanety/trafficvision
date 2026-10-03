@@ -12,6 +12,7 @@
   左键在空白处拖动    画新框
   左键点框 / 拖动框    选中 / 移动框
   1~6             切换选中框（或新框）的类别
+  R               应用"先载具后行人"规则（清掉与载具重叠的行人框）
   Delete / Backspace  删除选中框
   D / 右方向键      下一张（自动保存）
   A / 左方向键      上一张（自动保存）
@@ -32,6 +33,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DATASET = ROOT / "datasets" / "videoset_01_label"
 IMAGES = DATASET / "images"
 LABELS = DATASET / "labels"
+
+sys.path.insert(0, str(ROOT))
+from trafficvision.labelrules import suppress_riders  # noqa: E402
 
 from PyQt5.QtCore import QPoint, Qt  # noqa: E402
 from PyQt5.QtGui import QColor, QImage, QPainter, QPen, QPixmap, QFont  # noqa: E402
@@ -79,6 +83,13 @@ class Canvas(QWidget):
         self.pan_origin = QPoint(0, 0)
         self.pan_offset_start = QPoint(0, 0)
         self.space_held = False
+        self.history: list[list[list[float]]] = []
+
+    def push_history(self) -> None:
+        """在修改前记录快照，供 Ctrl+Z 撤销。"""
+        self.history.append([list(b) for b in self.boxes])
+        if len(self.history) > 50:
+            self.history.pop(0)
 
     # ---------- 坐标换算 ----------
     def to_image(self, point: QPoint) -> tuple[float, float]:
@@ -230,12 +241,20 @@ class Canvas(QWidget):
             x1, x2 = sorted((self.start_img[0], end_img_x))
             y1, y2 = sorted((self.start_img[1], end_img_y))
             if (x2 - x1) > 4 and (y2 - y1) > 4:
+                self.push_history()
                 x1 = max(0.0, min(w, x1)); x2 = max(0.0, min(w, x2))
                 y1 = max(0.0, min(h, y1)); y2 = max(0.0, min(h, y2))
                 self.boxes.append([float(self.window.current_class),
                                    ((x1 + x2) / 2) / w, ((y1 + y2) / 2) / h,
                                    (x2 - x1) / w, (y2 - y1) / h])
                 self.selected = len(self.boxes) - 1
+                # 标了载具就顺手清掉被它盖住的行人框（骑车人/驾驶位里的人）
+                if int(self.boxes[self.selected][0]) in {0, 1, 2, 3, 4}:
+                    before = len(self.boxes)
+                    self.boxes = suppress_riders(self.boxes)
+                    if len(self.boxes) != before:
+                        self.selected = -1
+                        self.window.mark_dirty()
             self.mode = None
             self.window.refresh_status()
             self.update()
@@ -253,6 +272,7 @@ class Canvas(QWidget):
             return
         if key in (Qt.Key_Delete, Qt.Key_Backspace):
             if 0 <= self.selected < len(self.boxes):
+                self.push_history()
                 self.boxes.pop(self.selected)
                 self.selected = -1
                 self.window.mark_dirty()
@@ -262,6 +282,7 @@ class Canvas(QWidget):
         if Qt.Key_1 <= key <= Qt.Key_6:
             idx = key - Qt.Key_1
             if 0 <= self.selected < len(self.boxes):
+                self.push_history()
                 self.boxes[self.selected][0] = float(idx)
                 self.window.mark_dirty()
             else:
@@ -271,6 +292,26 @@ class Canvas(QWidget):
             return
         if key == Qt.Key_F:
             self.fit_window()
+            return
+        if key == Qt.Key_R:
+            self.push_history()
+            before = len(self.boxes)
+            self.boxes = suppress_riders(self.boxes)
+            if len(self.boxes) != before:
+                self.selected = -1
+                self.window.mark_dirty()
+                self.window.refresh_status(extra=f"已清理 {before - len(self.boxes)} 个重叠行人框")
+            else:
+                self.window.refresh_status(extra="没有重叠的行人框需要清理")
+            self.update()
+            return
+        if key == Qt.Key_Z and (event.modifiers() & Qt.ControlModifier):
+            if self.history:
+                self.boxes = self.history.pop()
+                self.selected = -1
+                self.window.mark_dirty()
+                self.window.refresh_status(extra="已撤销上一步")
+                self.update()
             return
         super().keyPressEvent(event)
 
