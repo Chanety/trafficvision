@@ -43,9 +43,13 @@ def write_settings() -> None:
     data["lastOpenDir"] = str(IMAGES)
     data["drawSquares"] = False
     data["displayLabel"] = True
-    with open(settings_path, "wb") as fh:
-        pickle.dump(data, fh, pickle.HIGHEST_PROTOCOL)
-    print(f"已写入 labelImg 设置：{settings_path}")
+    try:
+        with open(settings_path, "wb") as fh:
+            pickle.dump(data, fh, pickle.HIGHEST_PROTOCOL)
+        print(f"已写入 labelImg 设置：{settings_path}")
+    except Exception as exc:  # 配置写不进去也不该阻止启动
+        print(f"[警告] 无法写入设置文件（{exc}）")
+        print("        启动后请手动把左上角格式切到 YOLO，并勾选「自动保存」")
 
 
 def ensure_classes_in_labels() -> None:
