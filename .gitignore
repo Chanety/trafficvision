@@ -27,3 +27,17 @@ desktop.ini
 .cache/
 .pytest_cache/
 .mypy_cache/
+
+# 本地实验：TrafficLab 3D 试跑（第三方代码、虚拟环境与大体积素材不入库）
+trafficlab-3d/repo/
+trafficlab-3d/env/
+trafficlab-3d/data/
+
+# 大体积二进制与运行产物（不入库）
+weights/
+outputs/
+*.pt
+*.engine
+*.onnx
+*.mp4
+*.gif
