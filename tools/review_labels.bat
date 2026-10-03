@@ -8,4 +8,6 @@ if not exist "%PY%" (
   exit /b 1
 )
 "%PY%" tools\start_labelimg.py
-if errorlevel 1 pause
+echo.
+echo 程序已退出（退出码 %errorlevel%）。如非 0，请把上面的信息截图发我。
+pause

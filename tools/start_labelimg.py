@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import os
 import pickle
+import shutil
 import subprocess
 import sys
+import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +48,18 @@ def write_settings() -> None:
     print(f"已写入 labelImg 设置：{settings_path}")
 
 
+def ensure_classes_in_labels() -> None:
+    """labelImg 的 YOLO 读取器要求在标注目录里也能找到 classes.txt。
+
+    它会从标注文件所在目录去找 classes.txt，只放在数据集根目录会直接报
+    FileNotFoundError 并导致启动失败。
+    """
+    target = LABELS / "classes.txt"
+    if not target.exists():
+        shutil.copyfile(CLASSES, target)
+        print(f"已补齐类别文件：{target}")
+
+
 def main() -> None:
     for path in (IMAGES, LABELS, CLASSES):
         if not path.exists():
@@ -54,6 +68,7 @@ def main() -> None:
             sys.exit(1)
 
     write_settings()
+    ensure_classes_in_labels()
 
     exe = Path(sys.executable).parent / "labelImg.exe"
     if exe.exists():
@@ -64,8 +79,20 @@ def main() -> None:
     print("启动标注工具：")
     print("  " + " ".join(cmd))
     print(f"\n图片目录：{IMAGES}\n标注目录：{LABELS}\n类别文件：{CLASSES}")
-    subprocess.run(cmd, check=False)
+    result = subprocess.run(cmd, check=False)
+    if result.returncode != 0:
+        print(f"\n程序退出码：{result.returncode}（非 0 表示启动失败）")
+        sys.exit(result.returncode)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        log = Path(__file__).resolve().parent / "labelimg_error.log"
+        text = traceback.format_exc()
+        log.write_text(text, encoding="utf-8")
+        print("启动失败，错误详情：\n")
+        print(text)
+        print(f"（已写入 {log}）")
+        sys.exit(1)
