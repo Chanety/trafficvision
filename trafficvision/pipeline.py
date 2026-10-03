@@ -15,10 +15,13 @@ from .config import (
     MAX_CLIP_SECONDS,
     MIN_CLIP_SECONDS,
     MOTION_MODEL,
+    STILL_THRESHOLD_PX,
+    STILL_WINDOW,
     TRACKER,
 )
 from .motion import TrackMotion
 from .render import draw_object, hud
+from .state import StateTracker
 
 
 def probe_video(path: str | Path) -> dict:
@@ -63,6 +66,7 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
     fps = info["fps"]
     size = (info["width"], info["height"])
     motions: dict[int, TrackMotion] = {}
+    state_tracker = StateTracker(window=STILL_WINDOW, threshold_px=STILL_THRESHOLD_PX)
     index = 0
     records: list[list[dict]] = []
     times: list[float] = []
@@ -106,6 +110,8 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
                                          frame_w=info["width"], frame_h=info["height"])
                     motions[track_id] = motion
                 cx, cy = motion.update(bbox, now)
+                # 运动状态：连续多帧未移动判为 constant（不显示、不预判）
+                state, hidden = state_tracker.update(track_id, cls_name, index, cx, cy)
 
                 preds = {h: motion.predict_box(h) for h in HORIZONS}
                 objects.append(
@@ -116,7 +122,9 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
                         "bbox": bbox,
                         "centroid": (cx, cy),
                         "speed_px_s": motion.speed,
-                        "predictable": motion.is_predictable(),
+                        "predictable": motion.is_predictable() and not hidden,
+                        "state": state,
+                        "hidden": hidden,
                         "preds": {str(h): preds[h] for h in HORIZONS},
                         "trail": list(motion.history),
                         "t": now,
@@ -310,6 +318,8 @@ def run_clip(
         if not ok:
             break
         for obj in records[idx] if idx < len(records) else []:
+            if obj.get("hidden"):
+                continue          # constant 状态的目标暂时不显示
             obj = dict(obj)
             obj["pred_box"] = obj["preds"].get(str(horizon))
             draw_object(frame, obj, horizon)

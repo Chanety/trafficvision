@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-CLASS_NAMES = ["car", "truck", "bus", "motorcycle", "bicycle", "person"]
+CLASS_NAMES = ["car", "truck", "bus", "motorcycle", "bicycle", "person", "sign", "bollard"]
 VEHICLE_IDS = {0, 1, 2, 3, 4}
 PERSON_ID = 5
 

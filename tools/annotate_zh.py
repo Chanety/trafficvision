@@ -50,8 +50,8 @@ from PyQt5.QtWidgets import (  # noqa: E402
 )
 
 # 类别（顺序必须与 classes.txt 一致，决定了训练时的类别编号）
-CLASS_NAMES = ["car", "truck", "bus", "motorcycle", "bicycle", "person"]
-CLASS_CN = ["汽车", "卡车", "公交", "摩托", "自行车", "行人"]
+CLASS_NAMES = ["car", "truck", "bus", "motorcycle", "bicycle", "person", "sign", "bollard"]
+CLASS_CN = ["汽车", "卡车", "公交", "摩托", "自行车", "行人", "标志牌", "路桩"]
 CLASS_COLORS = [
     QColor(80, 220, 80),
     QColor(255, 150, 0),
@@ -59,6 +59,8 @@ CLASS_COLORS = [
     QColor(220, 60, 220),
     QColor(220, 220, 60),
     QColor(60, 220, 255),
+    QColor(255, 255, 255),
+    QColor(150, 150, 255),
 ]
 
 
@@ -85,6 +87,7 @@ class Canvas(QWidget):
         self.space_held = False
         self.history: list[list[list[float]]] = []
         self.user_zoomed = False          # 用户手动缩放后，窗口改变大小时不再自动适应
+        self.active_handle: int | None = None   # 正在拖动的手柄编号（0~7）
 
     def push_history(self) -> None:
         """在修改前记录快照，供 Ctrl+Z 撤销。"""
@@ -161,6 +164,15 @@ class Canvas(QWidget):
             painter.setPen(QColor(20, 20, 20))
             painter.drawText(int(sx1) + 4, int(sy1) - 5, label)
 
+            # 选中的框画 8 个缩放手柄
+            if index == self.selected:
+                painter.setPen(QPen(QColor(20, 20, 20), 1))
+                for hx, hy in self.handle_points(self.boxes[index]):
+                    px, py = self.to_screen(hx, hy)
+                    painter.setBrush(QColor(255, 255, 255))
+                    painter.drawRect(int(px) - 4, int(py) - 4, 9, 9)
+                painter.setBrush(Qt.NoBrush)   # 复位，避免影响后续标签底色
+
         # 正在拖出的新框
         if self.mode == "draw":
             painter.setPen(QPen(QColor(255, 255, 255), 2, Qt.DashLine))
@@ -200,6 +212,14 @@ class Canvas(QWidget):
         if event.button() != Qt.LeftButton:
             return
 
+        # 先判断是否抓住了缩放手柄（只对已选中的框生效）
+        handle = self.handle_at(pos)
+        if handle is not None:
+            self.push_history()
+            self.mode = "resize"
+            self.active_handle = handle
+            return
+
         hit = self.hit_test(pos)
         if hit >= 0:
             self.selected = hit
@@ -225,6 +245,11 @@ class Canvas(QWidget):
         if self.mode == "draw":
             self.update()
             return
+        if self.mode == "resize" and self.active_handle is not None:
+            img_x, img_y = self.to_image(pos)
+            self.apply_resize(self.active_handle, img_x, img_y)
+            self.update()
+            return
         if self.mode == "move" and self.selected >= 0 and self.drag_origin_box:
             img_x, img_y = self.to_image(pos)
             dx = img_x - self.start_img[0]
@@ -237,7 +262,20 @@ class Canvas(QWidget):
                                          bw, bh]
             self.update()
             return
-        self.setCursor(Qt.OpenHandCursor if self.hit_test(pos) < 0 else Qt.SizeAllCursor)
+        # 光标反馈：手柄上显示缩放光标，框内显示移动光标，空白处显示抓手
+        handle = self.handle_at(pos)
+        if handle in (0, 4):
+            self.setCursor(Qt.SizeFDiagCursor)
+        elif handle in (2, 6):
+            self.setCursor(Qt.SizeBDiagCursor)
+        elif handle in (1, 5):
+            self.setCursor(Qt.SizeVerCursor)
+        elif handle in (3, 7):
+            self.setCursor(Qt.SizeHorCursor)
+        elif self.hit_test(pos) >= 0:
+            self.setCursor(Qt.SizeAllCursor)
+        else:
+            self.setCursor(Qt.OpenHandCursor)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
         if self.mode == "pan":
@@ -271,6 +309,13 @@ class Canvas(QWidget):
         if self.mode == "move":
             self.mode = None
             self.window.mark_dirty()
+            self.update()
+            return
+        if self.mode == "resize":
+            self.mode = None
+            self.active_handle = None
+            self.window.mark_dirty()
+            self.setCursor(Qt.ArrowCursor)
             self.update()
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
@@ -344,6 +389,59 @@ class Canvas(QWidget):
             if x1 <= x <= x2 and y1 <= y <= y2:
                 return index
         return -1
+
+    # ---------- 拖角缩放 ----------
+    HANDLE_IDS = ("左上", "上", "右上", "右", "右下", "下", "左下", "左")
+
+    def box_rect(self, box: list[float]) -> tuple[float, float, float, float]:
+        """归一化框 → 图像坐标的 x1, y1, x2, y2。"""
+        w, h = self.image_size()
+        _, cx, cy, bw, bh = box
+        return ((cx - bw / 2) * w, (cy - bh / 2) * h,
+                (cx + bw / 2) * w, (cy + bh / 2) * h)
+
+    def handle_points(self, box: list[float]) -> list[tuple[float, float]]:
+        x1, y1, x2, y2 = self.box_rect(box)
+        return [(x1, y1), ((x1 + x2) / 2, y1), (x2, y1), (x2, (y1 + y2) / 2),
+                (x2, y2), ((x1 + x2) / 2, y2), (x1, y2), (x1, (y1 + y2) / 2)]
+
+    def handle_at(self, pos: QPoint) -> int | None:
+        """返回命中的手柄编号；只对当前选中的框生效。"""
+        if not (0 <= self.selected < len(self.boxes)):
+            return None
+        tolerance = 9.0
+        px, py = pos.x(), pos.y()
+        for index, (hx, hy) in enumerate(self.handle_points(self.boxes[self.selected])):
+            sx, sy = self.to_screen(hx, hy)
+            if abs(px - sx) <= tolerance and abs(py - sy) <= tolerance:
+                return index
+        return None
+
+    def apply_resize(self, handle: int, image_x: float, image_y: float) -> None:
+        """按拖动的手柄调整框的边，保持最小尺寸并限制在画面内。"""
+        if not (0 <= self.selected < len(self.boxes)):
+            return
+        w, h = self.image_size()
+        if not w or not h:
+            return
+        box = self.boxes[self.selected]
+        x1, y1, x2, y2 = self.box_rect(box)
+        image_x = min(max(image_x, 0.0), float(w))
+        image_y = min(max(image_y, 0.0), float(h))
+        if handle in (0, 6, 7):
+            x1 = image_x
+        if handle in (2, 3, 4):
+            x2 = image_x
+        if handle in (0, 1, 2):
+            y1 = image_y
+        if handle in (4, 5, 6):
+            y2 = image_y
+        if x2 - x1 < 5 or y2 - y1 < 5:
+            return
+        self.boxes[self.selected] = [box[0],
+                                     ((x1 + x2) / 2) / w, ((y1 + y2) / 2) / h,
+                                     (x2 - x1) / w, (y2 - y1) / h]
+        self.window.mark_dirty()
 
 
 class MainWindow(QMainWindow):

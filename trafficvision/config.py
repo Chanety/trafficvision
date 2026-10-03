@@ -13,6 +13,8 @@ DEFAULT_CLASSES: tuple[str, ...] = (
     "motorcycle",
     "bicycle",
     "person",
+    "sign",
+    "bollard",
 )
 
 # 每个类别的绘制颜色（BGR）
@@ -23,6 +25,8 @@ CLASS_COLORS: dict[str, tuple[int, int, int]] = {
     "motorcycle": (220, 60, 220),
     "bicycle": (220, 220, 60),
     "person": (60, 220, 255),
+    "sign": (255, 255, 255),
+    "bollard": (150, 150, 255),
 }
 DEFAULT_COLOR: tuple[int, int, int] = (180, 180, 180)
 
@@ -45,3 +49,7 @@ MOTION_MODEL = "cv"
 # 误差反而变差（≈58.9 → ≈81.5 px），因此不用它做默认。
 # fasttrack 在 3 段横评中与 bytetrack 召回相当、误差略优，列为待全集验证的候选。
 TRACKER = "bytetrack.yaml"
+
+# 静止目标状态判定（constant / variable）
+STILL_WINDOW = 6          # 连续静止帧数
+STILL_THRESHOLD_PX = 3.0  # 位置波动阈值（像素）
