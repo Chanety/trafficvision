@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import traceback
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +26,18 @@ DATASET = ROOT / "datasets" / "videoset_01_label"
 IMAGES = DATASET / "images"
 LABELS = DATASET / "labels"
 CLASSES = DATASET / "classes.txt"
+LOG = Path(__file__).resolve().parent / "labelimg_startup.log"
+
+
+def log(message: str) -> None:
+    """把启动过程写入日志文件，任何失败都能留痕。"""
+    line = f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {message}"
+    print(line, flush=True)
+    try:
+        with open(LOG, "a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+    except Exception:
+        pass
 
 
 def write_settings() -> None:
@@ -37,7 +50,14 @@ def write_settings() -> None:
                 data = pickle.load(fh)
         except Exception:
             data = {}
-    data["labelFileFormat"] = 2          # LabelFileFormat.YOLO
+    # 必须存 LabelFileFormat 枚举对象本身。存整数 2 会导致
+    # labelImg 内部 get_format_meta() 返回 None 并在启动时抛 TypeError。
+    try:
+        from libs.labelFile import LabelFileFormat
+        data["labelFileFormat"] = LabelFileFormat.YOLO
+    except Exception:
+        # 取不到枚举就干脆不写这一项，让 labelImg 用默认值（人工点一下切换）
+        data.pop("labelFileFormat", None)
     data["autosave"] = True
     data["savedir"] = str(LABELS)
     data["lastOpenDir"] = str(IMAGES)
@@ -65,38 +85,50 @@ def ensure_classes_in_labels() -> None:
 
 
 def main() -> None:
+    log("=" * 60)
+    log(f"启动标注工具  Python={sys.version.split()[0]}  可执行文件={sys.executable}")
+    log(f"项目目录={ROOT}")
+    log(f"图片目录存在={IMAGES.exists()}  标注目录存在={LABELS.exists()}  类别文件存在={CLASSES.exists()}")
+
     for path in (IMAGES, LABELS, CLASSES):
         if not path.exists():
-            print(f"缺少必要文件：{path}")
-            print("请先运行 bench/make_label_set.py 生成标注集")
-            sys.exit(1)
+            log(f"缺少必要文件：{path}")
+            log("请先运行 bench/make_label_set.py 生成标注集")
+            return 1
 
     write_settings()
     ensure_classes_in_labels()
 
-    exe = Path(sys.executable).parent / "labelImg.exe"
-    if exe.exists():
-        cmd = [str(exe), str(IMAGES), str(CLASSES), str(LABELS)]
-    else:
-        cmd = [sys.executable, "-m", "labelImg.labelImg", str(IMAGES), str(CLASSES), str(LABELS)]
+    log(f"图片数量={len(list(IMAGES.glob('*.jpg')))}")
 
-    print("启动标注工具：")
-    print("  " + " ".join(cmd))
-    print(f"\n图片目录：{IMAGES}\n标注目录：{LABELS}\n类别文件：{CLASSES}")
-    result = subprocess.run(cmd, check=False)
+    # 不用 labelImg.exe：pip 生成的 exe 会把解释器绝对路径写死，
+    # 项目目录改名后（路径变化）它会直接以退出码 1 崩溃且没有任何输出。
+    # 改为通过 python -m 调用模块，路径由 sys.executable 动态给出。
+    cmd = [sys.executable, "-m", "labelImg.labelImg", str(IMAGES), str(CLASSES), str(LABELS)]
+
+    log("启动命令：" + " ".join(cmd))
+    result = subprocess.run(cmd, check=False, capture_output=True, text=True,
+                            encoding="utf-8", errors="replace")
+    if result.stdout:
+        log("--- 子进程输出 ---")
+        for line in result.stdout.splitlines():
+            log("  " + line)
+    if result.stderr:
+        log("--- 子进程错误 ---")
+        for line in result.stderr.splitlines():
+            log("  " + line)
+    log(f"子进程退出码={result.returncode}")
     if result.returncode != 0:
-        print(f"\n程序退出码：{result.returncode}（非 0 表示启动失败）")
-        sys.exit(result.returncode)
+        log("启动失败（退出码非 0）")
+    return result.returncode
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except Exception:
-        log = Path(__file__).resolve().parent / "labelimg_error.log"
         text = traceback.format_exc()
-        log.write_text(text, encoding="utf-8")
-        print("启动失败，错误详情：\n")
-        print(text)
-        print(f"（已写入 {log}）")
+        log("启动失败，异常详情：")
+        for line in text.splitlines():
+            log("  " + line)
         sys.exit(1)
