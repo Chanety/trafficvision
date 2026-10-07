@@ -26,7 +26,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BATCHES_DIR = ROOT / "dataset_batches"
+TOOLS_DIR = Path(__file__).resolve().parent
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
+# 一起塞进每个批次包、让它自带标注工具的一堆文件
+OFFLINE_TOOL = "标注工具_离线版.html"
 
 # 下载直链用的配置（与 _batch_config.bat 保持一致）
 REPO = "Chanety/ai-software-opensource"
@@ -75,6 +78,39 @@ LABEL_GUIDE = """========================================================
 【复核标准】
   · 框形差几个像素不用改；"有没有标到"和"类别对不对"才是关键。
   · 被遮挡一半的目标仍然要标，看不见的部分不用猜。
+========================================================
+"""
+
+OFFLINE_GUIDE = """========================================================
+ 离线包使用说明（{name} / {batch_id}，共 {count} 张）
+========================================================
+
+【最省事的用法：浏览器里标，零安装】
+  1. 先把整个文件夹解压出来（别只解压一半）
+  2. 双击 标注工具_离线版.html（用 Edge 或 Chrome 打开）
+  3. 点左上角"① 选择批次文件夹"，选中本文件夹
+     （就是同时含 images 与 labels 的那个）
+  4. 空白处左键拖动 = 画框；点框 = 选中；拖四角 = 改大小；
+     数字键 1~9 = 改类别；Delete = 删框；
+     滚轮缩放；中键拖动或空格+左键拖动 = 平移；
+     A / ← 上一张，D / → 下一张（自动保存）；R = 清骑车人
+  5. 标完直接关窗口即可，标注已经写回本文件夹的 labels\\
+     旧浏览器（没有"选择文件夹"能力）会自动退成下载模式：
+     改完点 Ctrl+S 存这一张，或点"导出全部改动"批量下载 txt，
+     再把 txt 放回 labels\\ 覆盖。
+
+【也可以用别的标注工具】
+  本包是标准 YOLO 格式：images\\ 是图，labels\\ 是同名 txt，
+  classes.txt 是类别表。labelImg / X-AnyLabeling / Label Studio 都能直接打开。
+
+【标完之后怎么交】
+  把 labels\\ 整个文件夹打包发回给负责人（只有 txt，几十 KB）。
+  负责人给了 打包复核结果.bat 的话，双击它输入批次号即可一键打包。
+
+【三条硬规则（详细见 标注说明.txt）】
+  1) 先载具、后行人：骑车人、驾驶位里的人只标载具，不标 person
+  2) 类别固定 9 类，顺序不可改
+  3) 拿不准的框留着别删；标志牌 / 路桩是静止类必须保留
 ========================================================
 """
 
@@ -127,44 +163,12 @@ setlocal
 call "%~dp0_batch_config.bat"
 if not defined BATCH_REPO ( echo 缺少 _batch_config.bat & pause & exit /b 1 )
 
-set "BATCH={batch_id}"
-set "ZIP=%TEMP%\\%BATCH_NAME%_%BATCH%.zip"
-set "URL=https://raw.githubusercontent.com/%BATCH_REPO%/%BATCH_BRANCH%/%BATCH_DIR%/%BATCH%.zip"
-set "DEST=%~dp0..\\..\\datasets\\%BATCH_NAME%\\%BATCH%"
-
-echo ============================================================
-echo   下载 %BATCH% （%BATCH_NAME%）
-echo   来源：%URL%
-echo   解压到：%DEST%
-echo ============================================================
+echo 正在准备复核批次 {batch_id} ...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0download_batch.ps1" ^
+  -Batch "{batch_id}" -Repo "%BATCH_REPO%" -Branch "%BATCH_BRANCH%" ^
+  -BatDir "%BATCH_DIR%" -DataName "%BATCH_NAME%"
 echo.
-echo 正在下载，约 80MB，请等提示"下载完成"再关窗口...
-
-if exist "%ZIP%" del /q "%ZIP%"
-curl -fL --retry 3 --retry-delay 2 -o "%ZIP%" "%URL%"
-if not exist "%ZIP%" (
-  echo curl 下载失败，改用 PowerShell 重试...
-  powershell -NoProfile -Command "Invoke-WebRequest -Uri '%URL%' -OutFile '%ZIP%'"
-)
-if not exist "%ZIP%" (
-  echo.
-  echo [失败] 没能下载到文件。请检查网络，或手动打开上面的来源链接下载。
-  pause
-  exit /b 1
-)
-
-echo 下载完成，正在解压...
-if not exist "%DEST%" mkdir "%DEST%"
-tar -xf "%ZIP%" -C "%DEST%" 2>nul
-if errorlevel 1 (
-  powershell -NoProfile -Command "Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%DEST%' -Force"
-)
-del /q "%ZIP%"
-
-echo.
-echo [完成] 已解压到 %DEST%
-echo        接下来双击 打开标注_批次{nn}.bat 开始复核。
-echo.
+echo 这一步结束后，双击 打开标注_批次{nn}.bat 开始复核。
 pause
 """
 
@@ -185,13 +189,31 @@ if not exist "%DATA%\\images" (
 )
 
 set "PY=trafficlab-3d\\env\\Scripts\\python.exe"
-if not exist "%PY%" set "PY=python"
+if not exist "%PY%" (
+  where python >nul 2>nul
+  if errorlevel 1 (
+    echo [缺少标注工具运行环境] 本机既没有项目的 Python 环境，也没装 Python。
+    echo    · 装上 Python 与依赖：pip install PyQt5 opencv-python numpy
+    echo    · 或者用任何 YOLO 格式标注工具直接打开：
+    echo      %CD%\\%DATA%\\images  与  %CD%\\%DATA%\\labels
+    echo      （规则见 %CD%\\%DATA%\\标注说明.txt，classes.txt 是类别表）
+    pause
+    exit /b 1
+  )
+  set "PY=python"
+)
 
 echo 正在打开 %DATA% 的复核标注...
 echo 滚轮缩放 / 中键或空格拖动 / 拖角改框 / R 清理重叠行人框 / Ctrl+Z 撤销
 echo 改完一帧按 D 或右方向键进入下一帧，进度实时写入 labels\\
 echo.
 "%PY%" tools\\annotate_zh.py "%DATA%"
+if errorlevel 1 (
+  echo.
+  echo [提示] 标注工具没能启动。多半是缺少 PyQt5 / opencv-python：
+  echo        "%PY%" -m pip install PyQt5 opencv-python numpy
+  echo        或者换用任何 YOLO 格式标注工具打开上面的 images / labels 目录。
+)
 echo.
 echo program exited, errorlevel = %errorlevel%
 pause
@@ -222,6 +244,8 @@ def main() -> None:
     ap.add_argument("--out", default=str(BATCHES_DIR), help="批次包输出目录")
     ap.add_argument("--bats", action="store_true",
                     help="同时生成 下载批次NN.bat / 打开标注_批次NN.bat（放在本脚本旁）")
+    ap.add_argument("--bats-only", action="store_true",
+                    help="不重打 zip，只用现有 zip 重算清单与 bat（改 bat 模板后用）")
     args = ap.parse_args()
 
     source = (ROOT / args.source).resolve() if not Path(args.source).is_absolute() \
@@ -253,22 +277,33 @@ def main() -> None:
 
     for idx, frames in enumerate(chunks, start=1):
         batch_id = f"batch_{idx:02d}"
-        stage = stage_root / batch_id
-        (stage / "images").mkdir(parents=True)
-        (stage / "labels").mkdir(parents=True)
-        (stage / "classes.txt").write_text(classes_txt, encoding="utf-8")
-        write_text(stage / "review_order.txt", "\n".join(frames) + "\n")
-        write_text(stage / "标注说明.txt",
-                   LABEL_GUIDE.format(name=args.name, batch_id=batch_id,
-                                      count=len(frames), nn=f"{idx:02d}"))
-        for name in frames:
-            shutil.copy2(source / "images" / name, stage / "images" / name)
-            sidecar = source / "labels" / (Path(name).stem + ".txt")
-            if sidecar.exists():
-                shutil.copy2(sidecar, stage / "labels" / sidecar.name)
-
         zip_path = out_dir / f"{batch_id}.zip"
-        make_zip(stage, zip_path)
+        if args.bats_only:
+            if not zip_path.exists():
+                raise SystemExit(f"--bats-only 需要已存在的 {zip_path}，请先跑一次完整生成")
+        else:
+            stage = stage_root / batch_id
+            (stage / "images").mkdir(parents=True)
+            (stage / "labels").mkdir(parents=True)
+            (stage / "classes.txt").write_text(classes_txt, encoding="utf-8")
+            write_text(stage / "review_order.txt", "\n".join(frames) + "\n")
+            write_text(stage / "标注说明.txt",
+                       LABEL_GUIDE.format(name=args.name, batch_id=batch_id,
+                                          count=len(frames), nn=f"{idx:02d}"))
+            write_text(stage / "离线包说明.txt",
+                       OFFLINE_GUIDE.format(name=args.name, batch_id=batch_id,
+                                            count=len(frames)))
+            tool_src = TOOLS_DIR / OFFLINE_TOOL
+            if tool_src.exists():
+                shutil.copy2(tool_src, stage / OFFLINE_TOOL)
+            else:
+                print(f"提示：没找到 {OFFLINE_TOOL}，这批不含离线标注工具")
+            for name in frames:
+                shutil.copy2(source / "images" / name, stage / "images" / name)
+                sidecar = source / "labels" / (Path(name).stem + ".txt")
+                if sidecar.exists():
+                    shutil.copy2(sidecar, stage / "labels" / sidecar.name)
+            make_zip(stage, zip_path)
         videos = Counter(video_of[n] for n in frames)
         manifest["batches"].append({
             "id": batch_id,
@@ -295,7 +330,8 @@ def main() -> None:
 
     write_text(out_dir / "manifest.json",
                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-    shutil.rmtree(stage_root)
+    if stage_root.exists():
+        shutil.rmtree(stage_root)
     print(f"清单已写入 {out_dir / 'manifest.json'}")
 
 

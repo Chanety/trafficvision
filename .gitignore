@@ -48,3 +48,6 @@ backups/
 
 # 分发给他人的人工复核批次包（体积大，放独立分支，见 tools/dataset_batches/README.md）
 /dataset_batches/
+
+# 协作者回传的复核结果包
+/复核结果_*.zip

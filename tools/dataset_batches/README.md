@@ -1,70 +1,84 @@
 # 数据集分发批次（人工复核包）
 
-`datasets\videoset_02_label`（332 帧待人工复核）要分给多个人同时干，
-按 **150 张一包** 切成 3 包。图片体积大，不进 `main` 分支，
-放在独立分支 `codex/dataset-batches-v1` 的 `dataset_batches/` 目录下，
-用本目录的 bat 一键下载。
+## 这批数据是什么
+
+`datasets\videoset_02_label`：332 帧 1080p、**尚未人工复核**（只有自动标注草稿）。
+要分给多个人同时干，所以按 **150 张一包**切成 3 包，
+图片体积大不进 `main`，放在独立分支 `codex/dataset-batches-v1` 的 `dataset_batches/` 下。
 
 | 批次 | 帧数 | 包大小 | 覆盖视频 | 说明 |
 |---|---|---|---|---|
-| `batch_01` | 150 | 80.2 MB | 14 段 | 优先帧最多（三轮车→自行车→标志牌→路桩→公交/卡车） |
-| `batch_02` | 150 | 80.6 MB | 14 段 | 中段优先帧 |
-| `batch_03` | 32 | 17.7 MB | 9 段 | 余数包，顺带扫尾 |
+| `batch_01` | 150 | 76.4 MB | 14 段 | 优先帧最多（三轮车→自行车→标志牌→路桩→公交/卡车） |
+| `batch_02` | 150 | 76.9 MB | 14 段 | 中段优先帧 |
+| `batch_03` | 32 | 16.9 MB | 9 段 | 余数包 |
 
-划分方式：按 `datasets\videoset_02_label\review_order.txt` 的顺序**顺序切块**，
-该顺序已覆盖全部 332 帧、按价值从高到低、跨视频轮流，所以每包都能覆盖多数视频。
-每包内部自带一份裁剪过的 `review_order.txt`，复核工具会照它排序。
+划分依据：`datasets\videoset_02_label\review_order.txt` 覆盖全部 332 帧、
+按价值从高到低、跨视频轮流；脚本按这个顺序**顺序切块**，
+所以每包都覆盖多数视频、批次号越小优先帧越多。每包内部自带裁剪过的
+`review_order.txt`，复核工具会照它排序。
 
 ## 文件清单
 
 | 文件 | 作用 |
 |---|---|
-| `下载批次01/02/03.bat` | 从 GitHub 分支下载对应压缩包，解压到 `datasets\videoset_02_review\batch_NN\` |
+| `下载批次01/02/03.bat` | 拿到批次包并解压到 `datasets\videoset_02_review\batch_NN\`（调用下面的 ps1） |
+| `download_batch.ps1` | 取包逻辑：本地 zip → 镜像直链 → git 稀疏拉取 → 给出求助提示，四步兜底 |
 | `打开标注_批次01/02/03.bat` | 用中文复核工具打开已下载的批次（`tools\annotate_zh.py`） |
-| `打包复核结果.bat` | 复核完把自己的 `labels\` 打包成 `复核结果_batch_NN_日期.zip` 发回给负责人 |
+| `打包复核结果.bat` + `pack_results.ps1` | 复核完把 `labels\` 打包成 `复核结果_batch_NN_日期.zip` 发回 |
 | `_batch_config.bat` | 仓库 / 分支 / 落地目录配置，换地方只改这一个文件 |
 | `make_batches.py` | 重新生成批次包与 bat（换数据集、换包大小都用它） |
 
-## 给别人怎么用
+## 拿包：下载脚本按这四步走，哪步先成功用哪步
 
-**情况一：对方有本仓库**（`git clone` 过）
+1. **本地已经有 zip**：放在 `tools\dataset_batches\`、仓库根 `dataset_batches\`、
+   `下载\` 或桌面，双击 bat 直接解压 —— **不联网**，适合 QQ / 网盘 / U 盘转发
+2. **镜像直链**：`gh-proxy.com` → `ghproxy.net` → `raw.githubusercontent.com`
+3. **git 稀疏拉取**：`git clone --depth 1 --filter=blob:none --sparse` +
+   `sparse-checkout set --no-cone /dataset_batches/batch_NN.zip`，**只下载这一个包**（80 MB 那包实测 ~20 秒）
+4. 都不行 → 打印三条明确出路（找负责人要 zip / 加协作者 / 浏览器手动下），不猜不静默
 
-1. 双击 `tools\dataset_batches\下载批次NN.bat`（约 80 MB，等提示"完成"）
-2. 双击 `tools\dataset_batches\打开标注_批次NN.bat` 开始复核
-3. 干完双击 `打包复核结果.bat`，把生成的 zip 发回
+### 实测结论（2026-10-07，本机）
 
-**情况二：对方只有一台普通电脑**
+| 通道 | 结果 |
+|---|---|
+| 本地 zip 解压 | ✅ 通（32 张图 + 32 个标注 + classes.txt + 标注说明.txt） |
+| `gh-proxy.com` / `ghproxy.net` 镜像 | ❌ 404 —— 仓库是**私有**的，匿名拿不到 |
+| `cdn.jsdelivr.net` | ❌ 404（只服务公开仓库） |
+| `raw.githubusercontent.com` | ❌ 连接被重置（国内常见） |
+| git 稀疏拉取 | ✅ 通（仓库内已登录账号，只下需要的那个包） |
 
-1. 直接下载并双击这三个 bat 里属于他的那个（右键"链接另存为"）：
-   [下载批次01.bat](https://raw.githubusercontent.com/Chanety/ai-software-opensource/main/tools/dataset_batches/%E4%B8%8B%E8%BD%BD%E6%89%B9%E6%AC%A101.bat) ·
-   [下载批次02.bat](https://raw.githubusercontent.com/Chanety/ai-software-opensource/main/tools/dataset_batches/%E4%B8%8B%E8%BD%BD%E6%89%B9%E6%AC%A102.bat) ·
-   [下载批次03.bat](https://raw.githubusercontent.com/Chanety/ai-software-opensource/main/tools/dataset_batches/%E4%B8%8B%E8%BD%BD%E6%89%B9%E6%AC%A103.bat)
-2. 压缩包里有 `标注说明.txt`，写清了规则与常见误检；
-   用任何 YOLO 格式标注工具打开即可（`images/` 是图，`labels/` 是标注，`classes.txt` 是类别表）
+结论：**当前仓库是私有仓库**，所以给别人数据只有两条实际可行的路——
 
-压缩包也可直接下（不需要 bat）：
+- **A. 直接把 zip 发给对方**（QQ / 网盘 / U 盘），对方放到 `tools\dataset_batches\` 双击同名 bat 即可；
+  最快、不需要对方有 GitHub 账号
+- **B. 把对方加为仓库协作者**，并让对方本机 Git 登录过自己的账号，走 git 那条路
 
-- <https://raw.githubusercontent.com/Chanety/ai-software-opensource/codex/dataset-batches-v1/dataset_batches/batch_01.zip>
-- <https://raw.githubusercontent.com/Chanety/ai-software-opensource/codex/dataset-batches-v1/dataset_batches/batch_02.zip>
-- <https://raw.githubusercontent.com/Chanety/ai-software-opensource/codex/dataset-batches-v1/dataset_batches/batch_03.zip>
+如果希望"谁都能点链接下载"，要把仓库改成公开（或另开一个公开的数据仓库）——
+这是对外可见性的决定，改之前先确认，改完之后镜像通道才会通。
 
-每个包的 sha256 见分支上的 `dataset_batches/manifest.json`。
-
-## 复核规则（包内 `标注说明.txt` 也是同一份）
+## 复核规则（包内 `标注说明.txt` 是同一份）
 
 - **先载具、后行人**：骑车人、驾驶位里的人只标载具不标 person；工具按 `R` 一键清理重叠行人框。
 - **类别 9 类不动**：`0 car, 1 truck, 2 bus, 3 motorcycle, 4 bicycle, 5 person, 6 sign, 7 bollard, 8 tricycle`。
 - 电动车/踏板车归 `motorcycle`；三轮车与三轮棚车归 `tricycle`，不细分。
-- 标志牌 / 路桩是静止类，必须保留；其余静止目标不影响预判。
+- 标志牌 / 路桩是静止类必须保留；其余静止目标不预判。
 - **拿不准的框留着别删**——漏标比误检对模型伤害大得多。
-- 常见误检（这批素材实测）：红色招牌/灯箱标成标志牌、花坛边缘/路缘石标成路桩、
+- 这批素材实测的常见误检：红色招牌/灯箱标成标志牌、花坛边缘/路缘石标成路桩、
   店面招牌标成卡车、紧贴车辆行走的人标成骑行者。
+
+## 回收结果
+
+对方双击 `打包复核结果.bat` → 输入 1/2/3 → 生成 `复核结果_batch_NN_日期.zip`（只含 labels，几十 KB），
+发回给负责人即可。
 
 ## 重新生成
 
 ```powershell
 # 默认：datasets\videoset_02_label → 150 张一包，同时刷新 bat
 "trafficlab-3d\env\Scripts\python.exe" tools\dataset_batches\make_batches.py --bats
+
+# 只改 bat 模板、不重打 zip（快）
+"trafficlab-3d\env\Scripts\python.exe" tools\dataset_batches\make_batches.py --bats --bats-only
 
 # 换数据集 / 换包大小
 "trafficlab-3d\env\Scripts\python.exe" tools\dataset_batches\make_batches.py `
@@ -84,3 +98,7 @@ git commit -m "data: videoset_02 人工复核批次包（150 张一包）"
 git push -u origin codex/dataset-batches-v1
 git checkout main
 ```
+
+每个包的 sha256 见分支上的 `dataset_batches/manifest.json`；
+重跑 `make_batches.py` 产物是逐字节确定的（zip 内时间戳固定为 2026-01-01），
+所以校验和不会因为重打而变。
