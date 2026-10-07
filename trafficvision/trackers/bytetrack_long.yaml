@@ -1,0 +1,18 @@
+# 面向"路口遮挡 + 目标多"的 ByteTrack 配置（项目自用，不改动 ultralytics 自带配置）
+#
+# 与默认 bytetrack.yaml 的差别：
+#   track_high_thresh 0.25 → 0.30  第一级匹配更干净，减少弱检测把轨迹带偏
+#   new_track_thresh  0.25 → 0.35  只有更可信的检测才能新建轨迹，抑制"碎片轨迹"
+#   track_buffer      30   → 75    丢失后保留 2.5 秒（30fps），跨越路口的互相遮挡
+#   match_thresh      0.8  → 0.9   关联更宽松（IoU 门槛 0.2 → 0.1），减少轨迹断掉
+#   fuse_score        True         保持不变：用检测分数稳定弱匹配
+#
+# 注意：要发挥 track_low_thresh 的第二级召回，检测侧 conf 必须低于 track_high_thresh，
+# 例如 conf=0.10。若检测直接用 conf=0.25，低分帧根本不会送进跟踪器。
+tracker_type: bytetrack
+track_high_thresh: 0.30
+track_low_thresh: 0.10
+new_track_thresh: 0.35
+track_buffer: 75
+match_thresh: 0.9
+fuse_score: True

@@ -5,7 +5,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from .config import CLASS_COLORS, DEFAULT_COLOR
+from .config import CLASS_COLORS, DEFAULT_COLOR, display_name
 
 
 def class_color(cls_name: str) -> tuple[int, int, int]:
@@ -72,21 +72,43 @@ def hud(img, lines: list[str]) -> None:
 
 def draw_object(img, obj: dict, horizon: float) -> None:
     color = class_color(obj["cls"])
+
+    # 静态目标记忆（隐标记回补）：这一帧检测器并没有输出它，是整段视频的
+    # 跨帧投票把它补回来的。用"密虚线 + ·记忆"标注，跟实测框区分开，
+    # 也不做预判——它本来就是静止的。
+    if obj.get("memory"):
+        dashed_box(img, obj["bbox"], color, 2, dash=4, gap=4)
+        _label(img, f'{display_name(obj["cls"])}·记忆',
+               (int(obj["bbox"][0]), int(obj["bbox"][1])), color, 0.45)
+        return
+
     trail(img, obj["trail"], color)
-    solid_box(img, obj["bbox"], color, 2)
-    _label(img, f'{obj["cls"]} #{obj["id"]}', (int(obj["bbox"][0]), int(obj["bbox"][1])), color)
+    if obj.get("coasting"):
+        # 遮挡续推：目标当前没有被检测到，框是推算出来的，用虚线区分，避免误认为是实测
+        dashed_box(img, obj["bbox"], color, 2)
+        _label(img, f'{display_name(obj["cls"])} #{obj["id"]} 遮挡续推',
+               (int(obj["bbox"][0]), int(obj["bbox"][1])), color, 0.45)
+    else:
+        solid_box(img, obj["bbox"], color, 2)
+        _label(img, f'{display_name(obj["cls"])} #{obj["id"]}',
+               (int(obj["bbox"][0]), int(obj["bbox"][1])), color)
 
     pred = obj.get("pred_box")
     if pred is None:
         return
-    dashed_box(img, pred, color, 2)
+    # 机动中的目标：匀速外推本来就不准，用灰色细虚线 + 文字标注，提醒别太当真
+    low = obj.get("confidence") == "low"
+    if low:
+        dashed_box(img, pred, (140, 140, 140), 1)
+    else:
+        dashed_box(img, pred, color, 2)
     center_now = obj["centroid"]
     center_pred = ((pred[0] + pred[2]) / 2.0, (pred[1] + pred[3]) / 2.0)
-    arrow(img, center_now, center_pred, color, 2)
+    arrow(img, center_now, center_pred, (140, 140, 140) if low else color, 1 if low else 2)
     _label(
         img,
-        f'预判 {horizon:g}s',
+        f'预判 {horizon:g}s' + ("（机动·低置信）" if low else ""),
         (int(pred[0]), int(max(12, pred[1] - 4))),
-        color,
+        (140, 140, 140) if low else color,
         0.45,
     )

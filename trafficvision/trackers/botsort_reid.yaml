@@ -1,0 +1,23 @@
+# BoT-SORT + 外观特征（ReID）：靠"长得像不像"把被遮挡后重新出现的同一辆车接回去，
+# 专门对付 ID 跳变。这是我们实测误差的最大来源。
+#
+# 与默认 botsort.yaml 的差别：
+#   with_reid: True    启用外观重识别；model: auto 表示直接复用检测器的特征，
+#                      不需要额外下载 ReID 权重
+#   appearance_thresh 0.8 → 0.6   外观门槛略放宽，路口同类车多、特征容易撞
+#   proximity_thresh  0.5 → 0.3   允许更远距离的候选进入外观比较
+#   track_buffer 30 → 75          与 bytetrack_long 对齐，便于公平对比
+#   gmc_method: none              这批素材相机基本固定（实测全局位移 <0.5px/帧），
+#                                 关掉全局运动补偿省算力
+tracker_type: botsort
+track_high_thresh: 0.30
+track_low_thresh: 0.10
+new_track_thresh: 0.35
+track_buffer: 75
+match_thresh: 0.9
+fuse_score: True
+gmc_method: none
+proximity_thresh: 0.3
+appearance_thresh: 0.6
+with_reid: True
+model: auto

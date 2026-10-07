@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第二轮报告：路桩漏检根因、静态目标隐标记与类别体系升级</title>
+<style>
+:root{
+  --bg:#f5f6f8; --fg:#151a21; --card:#ffffff; --muted:#6a7380; --line:#e2e6eb;
+  --accent:#2563eb; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+  --s1:#2563eb; --s2:#0e9488; --s3:#7c3aed; --s4:#ea580c; --s5:#16a34a; --s6:#db2777;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.05);
+}
+:root[data-theme="dark"]{
+  --bg:#0e1116; --fg:#e8ebf0; --card:#161a21; --muted:#98a1ae; --line:#252b35;
+  --accent:#6ea8fe; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --s1:#6ea8fe; --s2:#2dd4bf; --s3:#a78bfa; --s4:#fb923c; --s5:#4ade80; --s6:#f472b6;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 80px}
+header.hero{padding:52px 0 26px;border-bottom:1px solid var(--line);margin-bottom:26px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 7%,transparent),transparent)}
+.kicker{font-size:13px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+h1{font-size:clamp(23px,3.6vw,34px);line-height:1.28;margin:0 0 12px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);max-width:840px;margin:0 0 18px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted)}
+.chip b{color:var(--fg);font-weight:600}
+.chip.ok{border-color:color-mix(in srgb,var(--ok) 45%,var(--line));color:var(--ok)}
+.chip.warn{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));color:var(--warn)}
+.chip.bad{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));color:var(--bad)}
+nav.toc{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line);margin:0 -20px 26px;padding:10px 20px}
+nav.toc ol{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+nav.toc a{display:block;font-size:13px;padding:4px 10px;border-radius:8px;color:var(--muted);border:1px solid transparent;white-space:nowrap}
+nav.toc a:hover{background:var(--card);border-color:var(--line);color:var(--fg);text-decoration:none}
+nav.toc a.active{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);
+  border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.themebtn{position:absolute;right:20px;top:8px;font:inherit;font-size:12.5px;cursor:pointer;
+  background:var(--card);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+section{margin:42px 0;scroll-margin-top:64px}
+h2{font-size:21px;margin:0 0 6px;font-weight:600;letter-spacing:-.01em}
+.h2sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+h3{font-size:16px;margin:26px 0 10px;font-weight:600}
+p{margin:0 0 14px}ul,ol{margin:0 0 14px;padding-left:22px}li{margin:5px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;
+  background:color-mix(in srgb,var(--fg) 7%,transparent);padding:1px 5px;border-radius:5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(165px,1fr))}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+.stat .lbl{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.stat .val{font-size:25px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+.stat .val small{font-size:13px;color:var(--muted);font-weight:400;margin-left:3px}
+.stat .note{font-size:12px;color:var(--muted);margin-top:5px}
+.up{color:var(--ok)}.down{color:var(--bad)}.flat{color:var(--warn)}
+.tw{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:12.5px;white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:hover{background:color-mix(in srgb,var(--accent) 5%,transparent)}
+.best{font-weight:600;color:var(--ok)}.worst{color:var(--bad)}
+caption{caption-side:bottom;text-align:left;color:var(--muted);font-size:12px;padding-top:8px}
+.chart{width:100%;margin:6px 0 4px}
+.chart svg{display:block;width:100%;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 2px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.legend span[aria-pressed="false"]{opacity:.4;text-decoration:line-through}
+.sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+.cvtip{font-size:12.5px;color:var(--muted);margin-top:6px}
+figure{margin:18px 0}
+figure img{width:100%;border-radius:12px;border:1px solid var(--line);display:block;background:#000}
+figcaption{font-size:12.5px;color:var(--muted);margin-top:8px}
+.note{border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card));
+  border-radius:0 10px 10px 0;padding:12px 16px;margin:16px 0;font-size:13.5px}
+.warnbox{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--card))}
+.badbox{border-left-color:var(--bad);background:color-mix(in srgb,var(--bad) 7%,var(--card))}
+.okbox{border-left-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--card))}
+.map{display:grid;grid-template-columns:1fr 40px 1fr;gap:6px 10px;align-items:center;font-size:13px;max-width:620px}
+.map .l,.map .r{padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.map .a{text-align:center;color:var(--muted)}
+.map .hdr{border:0;background:transparent;color:var(--muted);font-size:12.5px;padding:0 10px}
+footer{border-top:1px solid var(--line);margin-top:52px;padding-top:20px;color:var(--muted);font-size:12.5px}
+.reveal{opacity:0;transform:translateY(10px);transition:opacity .5s ease,transform .5s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+@media print{nav.toc,.themebtn{display:none}.card,figure img{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">交通视频预判项目 · 第二轮报告</div>
+  <h1>路桩为什么漏检、静态目标隐标记、以及类别体系升级</h1>
+  <p class="sub">
+    针对你提的四条意见逐条核查与落地：路桩漏检根因（含 VID_112222 / 112254 的具体诊断）、
+    非机动车合并为什么看起来"没执行"、路灯与信号灯单列、行人拆出"非机动车驾驶员"。
+    所有结论都有实测数据，负结果与仍未解决的问题同样写在报告里。
+  </p>
+  <div class="chips">
+    <span class="chip ok">路桩标注量 <b>194 → 1056</b>（5.4×）</span>
+    <span class="chip ok">左边漏掉的路桩 <b>已用隐标记补回</b></span>
+    <span class="chip ok">非机动车合并 <b>已生效</b></span>
+    <span class="chip">新增类别 <b>路灯 / 信号灯 / 非机动车驾驶员</b></span>
+    <span class="chip ok">上下文校验 <b>否掉 83 / 待确认 63</b></span>
+    <span class="chip warn">待你复核 <b>63 个待确认</b></span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目录">
+  <button class="themebtn" id="themebtn" type="button">深色</button>
+  <ol>
+    <li><a href="#s1">结论速览</a></li>
+    <li><a href="#s2">路桩根因</a></li>
+    <li><a href="#s3">隐标记机制</a></li>
+    <li><a href="#s4">类别体系</a></li>
+    <li><a href="#s5">重标注结果</a></li>
+    <li><a href="#s6">怎么复核</a></li>
+    <li><a href="#s7">未解决与风险</a></li>
+    <li><a href="#s8">附录</a></li>
+    <li><a href="#s9">补丁：上下文校验</a></li>
+  </ol>
+</nav>
+
+<!-- ================= 1 ================= -->
+<section id="s1" class="reveal">
+  <h2>一、结论速览</h2>
+  <p class="h2sub">四条意见 → 四条结论。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>你提的问题</th><th>核查结论</th><th class="num">状态</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>路桩无法被重复识别，有的漏、有的走过人之后就没了</td>
+          <td><b>根因是提示词，不是模型能力。</b>自动标注只用单词 <code>"bollard"</code>，
+              它对这种混凝土路桩只有 0.02~0.16 分，低于标注流程的 0.15 阈值 →
+              左边的路桩从未进入标注集 → 微调模型从来没见过它们 → 永远学不会。</td>
+          <td class="num" style="color:var(--ok)">已修复</td>
+        </tr>
+        <tr>
+          <td>建议用"回档查看"把稳定识别的静态目标隐标记下来</td>
+          <td><b>已按你的规则实现并跑通</b>：非遮挡帧里 ≥80% 被识别 → 写入隐标记，
+              漏检的帧自动补回。112222 左边两根路桩现在稳定显示为"路桩·记忆"。</td>
+          <td class="num" style="color:var(--ok)">已实现</td>
+        </tr>
+        <tr>
+          <td>三轮车 / 摩托 / 自行车合并为非机动车，没有执行</td>
+          <td><b>你说得对。</b>合并只做在训练集里，而软件默认权重还是开放词汇模型，
+              输出仍是分开的三类。已把默认权重换成合并模型，并给开放词汇路径也加了合并映射。</td>
+          <td class="num" style="color:var(--ok)">已生效</td>
+        </tr>
+        <tr>
+          <td>路灯和信号灯单列一类；行人拆出非机动车驾驶员</td>
+          <td><b>三类都已加入并重新自动标注。</b>骑车人不再删除，改为单独标成
+              "非机动车驾驶员"，与步行的行人区分（580 个框被改判）。</td>
+          <td class="num" style="color:var(--ok)">已加入</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 2 ================= -->
+<section id="s2" class="reveal">
+  <h2>二、路桩为什么漏：诊断证据</h2>
+  <p class="h2sub">对 VID_20261004_112222 与 112254 的静态目标区域做了穷尽式扫描：多套权重 × 多个提示词 × 极低阈值。</p>
+
+  <h3>先确认现场：三根路桩长什么样</h3>
+  <figure>
+    <img src="../outputs/probe_bollard/112222/VID_20261004_112222_f00000_roi.jpg"
+         alt="112222 近景区域放大：三根混凝土路桩，顶部有黄黑警示条纹">
+    <figcaption>VID_112222 的近景区域放大 2 倍。三根路桩形态几乎一致：混凝土柱体 + 黄黑警示条纹，
+      <b>最右侧那根略白略干净</b>，中间那根更灰更脏，最左边那根被画面左边缘切掉约一半。</figcaption>
+  </figure>
+
+  <h3>关键证据：同一个物体，换个词分数差 20 倍</h3>
+  <div class="card">
+    <div class="legend" id="leg-prompt"></div>
+    <div class="chart" id="chart-prompt"></div>
+    <div class="cvtip">VID_112222 第 0 帧；橙色虚线是自动标注流程当时用的置信度阈值 0.15。低于这条线的框会被直接丢弃。</div>
+  </div>
+  <div class="tw">
+    <table>
+      <caption>同一帧、同一批物体，只替换"路桩"的提示词。（来源：bench/bollard_probe.py）</caption>
+      <thead><tr><th>提示词</th><th class="num">中间路桩 x=0.20</th><th class="num">右侧路桩 x=0.37</th><th class="num">最左路桩（被切）x=0.01</th><th>结果</th></tr></thead>
+      <tbody>
+        <tr><td><code>"bollard"</code>（当时的做法）</td><td class="num worst">0.032</td><td class="num">0.164</td><td class="num worst">无任何响应</td><td class="worst">左边的全丢，右边的时有时无</td></tr>
+        <tr><td><code>"traffic bollard"</code></td><td class="num">0.094</td><td class="num">0.361</td><td class="num">0.015</td><td>仍不稳定</td></tr>
+        <tr><td><code>"barrier post"</code></td><td class="num">0.494</td><td class="num">0.555</td><td class="num worst">0.010</td><td>可用</td></tr>
+        <tr><td><code>"concrete bollard"</code></td><td class="num best">0.682</td><td class="num best">0.556</td><td class="num">0.018</td><td class="best">三根里能稳定抓到两根</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note badbox">
+    <b>这就是"时有时无"的机理。</b>用 <code>"bollard"</code> 时右侧那根的分数正好压在 0.15 上下
+    （实测四帧分别是 0.164 / 0.130 / 0.162 / 0.163）——行人走过、光影变化、运动模糊都会让它
+    掉到阈值以下，于是"这一帧有、下一帧就没了"。中间那根更惨，四帧分别只有
+    0.032 / 0.056 / 0.070 / 0.018，<b>从来没跨过阈值</b>，所以标注里根本不存在。
+  </div>
+
+  <h3>第二层原因：微调模型继承了漏标，形成闭环</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>模型</th><th class="num">中间路桩</th><th class="num">右侧路桩</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>开放词汇（提示词 <code>"bollard"</code>）</td><td class="num">0.032~0.070</td><td class="num">0.130~0.164</td><td>两个都在阈值附近挣扎</td></tr>
+        <tr><td>微调 v7（阈值降到 0.01）</td><td class="num worst">连 0.01 都没有</td><td class="num">0.567~0.631</td><td class="worst">对它而言，左边那根"不存在"</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>原因很直接：v7 的训练标注是用 <code>"bollard"</code> + 阈值 0.15 生成的，
+  里面<b>从来没有出现过中间那根路桩</b>。模型不可能学会它没见过的样本——
+  这是一个自我强化的漏标闭环：<i>检测不出来 → 不进标注 → 训练后依然检测不出来</i>。</p>
+
+  <h3>第三层：最左边那根是机位问题</h3>
+  <p>被画面左边缘切掉约一半，连 <code>"concrete bollard"</code> 也只有 0.011~0.038 分。
+  这类"半个目标"无论换什么词都不稳定。若这个点位是长期部署，<b>把相机往右转一点让它完整入画</b>，
+  比任何算法都有效。</p>
+
+  <h3>112254 同样的问题，量更多</h3>
+  <p>该视频近景有 4~6 根并排路桩。用 <code>"bollard"</code> 时全部落在
+  <b>0.011~0.219</b> 之间（只有极少数帧偶然跨过 0.15）；换成 <code>"concrete bollard"</code> 后
+  分数变成 <b>0.14~0.91</b>，并且每一帧都稳定。两个视频的结论完全一致。</p>
+</section>
+
+<!-- ================= 3 ================= -->
+<section id="s3" class="reveal">
+  <h2>三、"回档查看 + 隐标记"：你的方案怎么落地的</h2>
+  <p class="h2sub">做成了推理期机制，不需要重训就能生效——这样你现在就能用，而不是等下一版权重。</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">四步流程</h3>
+    <ol>
+      <li><b>扫描</b>：整段视频用提示词集成（bollard / concrete bollard / barrier post / traffic bollard）
+        以 0.05 的低阈值扫静态目标，召回优先——宁滥勿缺。</li>
+      <li><b>投票</b>：同一位置跨帧聚成一簇，统计"这一帧没被别的目标挡住"时，有多大比例被识别为同一类。</li>
+      <li><b>固化</b>：比例 ≥ 80%（你给的经验值）且至少命中 4 帧 → 该位置写入隐标记。</li>
+      <li><b>回补</b>：之后每一帧，只要该位置没被遮挡、而检测器这一帧没输出，就按隐标记补回，
+        画成<b>密虚线 + "·记忆"</b>，与实测框明确区分，并且<b>不做预判</b>（它是静止的）。</li>
+    </ol>
+    <p style="margin-bottom:0">遮挡判据：任一动态目标的框覆盖该位置 ≥50% 面积、或盖住它的中心点，
+    就算这一帧"看不见"——<b>看不见的帧既不计入比例，也不会被补回</b>，否则会在一辆驶过的公交车上画出一根柱子。</p>
+  </div>
+
+  <h3>效果：左边两根路桩回来了</h3>
+  <figure>
+    <img src="../outputs/static_demo/frames/112222_memory.jpg"
+         alt="VID_112222 处理结果：左侧两根路桩用虚线框标注为『路桩·记忆』，右侧一根为实测框">
+    <figcaption>VID_112222 第 76 帧（1 秒梯度）。左侧两根路桩是检测器<b>从来没有检出过</b>的位置，
+      现在由隐标记补回（虚线 + "路桩·记忆"）；右侧那根是检测器真实输出的实测框（实线 + "路桩 #18"）。
+      左上角信息条显示"静态记忆 16"。同一帧还能看到"路灯·记忆""信号灯·记忆"。</figcaption>
+  </figure>
+
+  <h3>投票把误检挡掉了多少</h3>
+  <div class="card">
+    <div class="legend" id="leg-vote"></div>
+    <div class="chart" id="chart-vote"></div>
+    <div class="cvtip">同一算法在标注侧也顺手做了数据清洗：跨帧投票删掉了 8055 个偶发静态框（详见第五节）。</div>
+  </div>
+
+  <div class="note okbox">
+    <b>三项防错设计</b>（都是在实测中发现并补上的）：
+    ① <b>比例分母修正</b>——初版用"可见帧数"做分母，把"隔着车流仍然检出"的帧算成矛盾，出现 8.5 这种大于 1 的荒谬比例；
+    改成"可见帧 ∪ 已检出帧"后恒 ≤ 1。
+    ② <b>碎片合并</b>——同一个信号灯的灯头/灯杆/灯箱会各自成簇，按 IoU 或中心距并回一个目标。
+    ③ <b>最小面积过滤</b>——10×17 像素这种量级的框全是噪声，直接丢弃（单段视频丢掉 968~1567 个）。
+  </div>
+</section>
+
+<!-- ================= 4 ================= -->
+<section id="s4" class="reveal">
+  <h2>四、类别体系升级</h2>
+  <p class="h2sub">基础类别表顺序不能动（会影响已有标注），新类别一律往后追加。</p>
+
+  <h3>4.1 非机动车合并——为什么看起来"没执行"</h3>
+  <div class="note warnbox">
+    <b>根因</b>：合并确实做了，但只做在<b>训练集构建脚本</b>里（<code>bench/build_train_v7.py</code>），
+    而软件的默认权重一直是开放词汇模型 <code>yolov8s-worldv2.pt</code> + 9 类提示词。
+    走这条路径时，输出里永远是分开的摩托 / 自行车 / 三轮车，<b>从来不会出现"非机动车"</b>。
+    你看到的就是这条路径。
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>改动</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>默认权重</td><td><code>--weights</code> 默认从开放词汇模型改为微调合并模型 <code>outputs/train/v7/weights/best.pt</code></td></tr>
+        <tr><td>自动识别模式</td><td>按权重文件名自动判断是否开放词汇，<code>--world/--no-world</code> 不再需要手动指定（旧默认会在传微调权重时直接报错）</td></tr>
+        <tr><td>开放词汇路径也合并</td><td>新增类别名映射，<code>motorcycle/bicycle/tricycle → nonmotor</code>，两条路径输出口径一致</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>现在跑出来的画面标签是中文的"非机动车"，截图见第五节。</p>
+
+  <h3>4.2 类别表：12 类基础 + 10 类合并</h3>
+  <div class="map">
+    <div class="l hdr">基础类别（12 类，0~8 顺序不变）</div><div class="a hdr"></div><div class="r hdr">合并输出（10 类）</div>
+    <div class="l">0 car　1 truck　2 bus</div><div class="a">→</div><div class="r">0 car　1 truck　2 bus</div>
+    <div class="l">3 motorcycle　4 bicycle　8 tricycle</div><div class="a">→</div><div class="r"><b>3 nonmotor</b>（非机动车）</div>
+    <div class="l">5 person</div><div class="a">→</div><div class="r">4 person（行人，纯步行）</div>
+    <div class="l">6 sign　7 bollard</div><div class="a">→</div><div class="r">5 sign　6 bollard</div>
+    <div class="l"><b>9 roadlamp</b>（新增）</div><div class="a">→</div><div class="r">7 roadlamp（路灯）</div>
+    <div class="l"><b>10 trafficlight</b>（新增）</div><div class="a">→</div><div class="r">8 trafficlight（信号灯）</div>
+    <div class="l"><b>11 rider</b>（新增）</div><div class="a">→</div><div class="r">9 rider（非机动车驾驶员）</div>
+  </div>
+  <p class="cvtip" style="margin-top:10px">原始标注文件一个字节都没有改动，合并只发生在构建训练集/输出时，随时可以回退。</p>
+
+  <h3>4.3 骑乘状态：怎么判断"人在骑车"而不是"人在走路"</h3>
+  <p>不需要额外模型，用框的几何关系就够了。同时满足三条才判为骑乘：</p>
+  <ol>
+    <li>人与两三轮车的<b>水平重叠</b> ≥ 较窄者宽度的 40%（人横向落在车上）；</li>
+    <li>人的<b>脚底</b>（框下边）落在载具框的垂直范围内（上缘允许外扩 20%）；</li>
+    <li>人的<b>框顶</b>明显高于载具框底（人确实坐在上面，而不是站在车后的行人）。</li>
+  </ol>
+  <p>满足则把 <code>person</code> 改判为 <code>rider</code>（非机动车驾驶员）。旧规则是"骑车人直接删除"，
+  新规则是"单独成类"——同一帧里：两三轮车是载具框、骑它的人是驾驶员框、旁边走路的人是行人框，三者互不矛盾。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>合成样例</th><th>输入</th><th class="num">判定</th></tr></thead>
+      <tbody>
+        <tr><td>人骑在摩托上</td><td>摩托车框 + 人框（水平重合、脚在车上、人在车上方）</td><td class="num" style="color:var(--ok)">→ rider ✓</td></tr>
+        <tr><td>人站在摩托旁</td><td>摩托车框 + 人框（横向错开、脚在地面）</td><td class="num">→ 行人（不变）✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 5 ================= -->
+<section id="s5" class="reveal">
+  <h2>五、重新自动标注的结果</h2>
+  <p class="h2sub">用新口径把 332 帧全部重标了一遍，并与旧标注逐类对比。</p>
+
+  <div class="grid g4">
+    <div class="stat"><div class="lbl">路桩框</div><div class="val up">194 → 1056</div><div class="note">5.4 倍</div></div>
+    <div class="stat"><div class="lbl">标志牌框</div><div class="val up">98 → 974</div><div class="note">9.9 倍</div></div>
+    <div class="stat"><div class="lbl">非机动车驾驶员</div><div class="val up">0 → 580</div><div class="note">原来被整类删除</div></div>
+    <div class="stat"><div class="lbl">投票清理掉</div><div class="val">8055</div><div class="note">个偶发静态框</div></div>
+  </div>
+
+  <h3>共有类别：变化倍数</h3>
+  <div class="card">
+    <div class="chart" id="chart-ratio"></div>
+    <div class="cvtip">1.0 = 与旧标注完全一致。汽车 / 卡车 / 公交 / 非机动车基本不动，说明提示词改动没有污染动目标；
+      行人下降 16% 是因为 580 个骑乘中的行人被改判成了"非机动车驾驶员"。</div>
+  </div>
+
+  <h3>新增类别：框数</h3>
+  <div class="card">
+    <div class="chart" id="chart-new"></div>
+    <div class="cvtip">这几类在旧标注里完全没有位置可放。信号灯数量偏多，是因为"traffic light"这个词
+      对路口红色灯箱、红色招牌非常敏感——这正是第六节位置清单要复核的重点。</div>
+  </div>
+
+  <h3>重新标注前后的画面</h3>
+  <figure>
+    <img src="../outputs/review_videoset_02/frames/VID_20261004_112222_f00000.jpg"
+         alt="旧自动标注：近景三根路桩只有最右边一根有框">
+    <figcaption><b>旧标注</b>（VID_112222 第 0 帧）：近景三根路桩，只有最右侧那根有框；
+      左边两根完全没有标注。类别还是分开的摩托 / 自行车。</figcaption>
+  </figure>
+  <figure>
+    <img src="../outputs/review_videoset_02_v2/frames/VID_20261004_112254_f00030.jpg"
+         alt="新自动标注：并排的多根路桩全部框出，并出现非机动车、非机动车驾驶员、路灯、信号灯等类别">
+    <figcaption><b>新标注</b>（VID_112254 第 30 帧）：并排的路桩全部框出（旧标注里几乎没有）；
+      出现"非机动车"（合并后）、"非机动车驾驶员"（骑乘的人）、"路灯"、"信号灯"等新类别。
+      同时可以看到一个典型误检：左侧红色"自由"雕塑被当成了信号灯——这类需要你复核。</figcaption>
+  </figure>
+</section>
+
+<!-- ================= 6 ================= -->
+<section id="s6" class="reveal">
+  <h2>六、怎么复核（不需要逐张标注）</h2>
+  <p class="h2sub">把复核粒度从"332 帧 × 每帧几十个框"压到"282 个位置"。</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">静态结构位置清单</h3>
+    <p>把整段视频里通过一致性检验的静态位置逐个裁出来编号，按类分组。你只需要对着小图扫一遍，
+    把编号记下来，例如："信号灯 #12、#17 不是信号灯，是红色招牌"。</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>类别</th><th class="num">位置数</th><th>复核建议</th></tr></thead>
+        <tbody>
+          <tr><td>路桩</td><td class="num">37</td><td class="best">最优先——这是你反馈的问题所在，数量也最少</td></tr>
+          <tr><td>标志牌</td><td class="num">46</td><td>次优先，看有没有把店面招牌、广告当成交通标志</td></tr>
+          <tr><td>路灯</td><td class="num">91</td><td>看有没有漏灯、把信号灯杆当路灯</td></tr>
+          <tr><td>信号灯</td><td class="num">108</td><td class="worst">最需要复核——红色灯箱/招牌误检最多</td></tr>
+          <tr><td><b>合计</b></td><td class="num"><b>282</b></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-bottom:0">入口：<code>outputs\static_review_v2\index.html</code></p>
+  </div>
+
+  <figure>
+    <img src="../outputs/static_review_v2/crops/000_trafficlight.jpg"
+         alt="位置清单里的一项：红框圈出交通信号灯灯头">
+    <figcaption>位置清单里的一项示例。红框是自动标注给出的位置，图是原始画面裁出来的，
+      下面标注了一致性比例与框尺寸。红框里确实是一个信号灯灯头——这是对的一项。</figcaption>
+  </figure>
+
+  <div class="grid g2">
+    <div class="stat"><div class="lbl">位置清单（推荐先看这个）</div>
+      <div class="val" style="font-size:15px;font-weight:600">outputs\static_review_v2\index.html</div>
+      <div class="note">282 个静态位置，按类分组，扫一遍约 15~20 分钟</div></div>
+    <div class="stat"><div class="lbl">帧级复核包（需要时再看）</div>
+      <div class="val" style="font-size:15px;font-weight:600">outputs\review_videoset_02_v2\index.html</div>
+      <div class="note">332 帧全部画好框，含每段视频总览图</div></div>
+  </div>
+  <div class="note">
+    标注集本体：<code>datasets\videoset_02_label2</code>（新口径 10 类，图片为硬链接不额外占盘）；
+    旧口径仍保留在 <code>datasets\videoset_02_label</code>，可随时对照或回退。
+  </div>
+</section>
+
+<!-- ================= 7 ================= -->
+<section id="s7" class="reveal">
+  <h2>七、仍未解决的与风险</h2>
+
+  <div class="note badbox">
+    <b>1. 新增的三个类别还没有对应权重。</b>微调模型 v7 只有 7 类，不含路灯 / 信号灯 / 非机动车驾驶员。
+    所以现在这两条能力是这样提供的：静态目标靠"静态通道 + 隐标记"（开放词汇 + 跨帧投票），
+    骑乘状态靠几何规则实时判定。要让它们进入模型本体，需要用新标注重训一版——
+    但请先看下一条。
+  </div>
+
+  <div class="note warnbox">
+    <b>2. 新标注仍是自动标注，存在循环论证风险。</b>尤其是信号灯的 3712 个框，里面有把红色招牌、
+    灯箱当成信号灯的情况（截图里那个"自由"雕塑就是例子）。跨帧投票能滤掉"偶发的"误检，
+    但滤不掉"稳定存在的"误检——那种误检会一路通过 80% 检验。
+    <b>在位置清单复核完成之前，不建议用新标注重训模型</b>，否则会把误检学进权重里。
+  </div>
+
+  <div class="note warnbox">
+    <b>3. 112222 最左边那根路桩仍不稳定。</b>它被画面左边缘切掉约一半，连最强的提示词也只有
+    0.02~0.04 分。隐标记机制能把它补回来（投票勉强通过），但这是"靠整段视频的一致性补出来的"，
+    单帧仍然抓不到。<b>若该点位长期部署，建议把相机往右调一点</b>，让它完整入画。
+  </div>
+
+  <div class="note warnbox">
+    <b>4. 骑乘判定是几何启发式，会有边界情况。</b>一个人紧贴着停放的摩托车行走时可能被误判为驾驶员。
+    实测样例通过，但真实场景需要你在位置清单/帧级复核里留意"非机动车驾驶员"这一类。
+    若误判偏多，可以调严"水平重叠 40%"这一条。
+  </div>
+
+  <div class="note">
+    <b>5. 静态通道的代价与画面拥挤。</b>每帧额外约 24 ms（imgsz 1280，实测 batch=4），
+    配合每 3 帧扫一次（静态目标不随时间变化，抽样不影响正确性），端到端约增加 8 ms/帧。
+    另外，由于微调模型（7 类）不含路灯/信号灯，这些位置每帧都要靠隐标记补回，
+    一个路口画面里可能同时出现二三十个静态标记，看起来会比较满。
+    可用 <code>--static-classes bollard</code> 只保留你关心的类（实测 112222 只留路桩后
+    变成 3 个位置、每帧约 1 个标记），或用 <code>--no-static-map</code> 整体关闭。
+  </div>
+</section>
+
+<!-- ================= 8 ================= -->
+<section id="s8" class="reveal">
+  <h2>八、附录</h2>
+
+  <h3>本轮改动的文件</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>文件</th><th>改动</th></tr></thead>
+      <tbody>
+        <tr><td><code>trafficvision/config.py</code></td><td>新增 9/10/11 三类（路灯/信号灯/驾驶员）、合并方案与映射、静态地图参数、多提示词集成表</td></tr>
+        <tr><td><code>trafficvision/staticmap.py</code></td><td><b>新增</b>：静态目标隐标记（跨帧投票 + 遮挡判定 + 回补）</td></tr>
+        <tr><td><code>trafficvision/labelrules.py</code></td><td><b>新增</b> <code>classify_riders()</code>：把骑乘中的行人改判为驾驶员（旧删除逻辑保留）</td></tr>
+        <tr><td><code>trafficvision/pipeline.py</code></td><td>接入静态通道与隐标记回补；类别名合并；<code>world</code> 参数改为自动判断</td></tr>
+        <tr><td><code>trafficvision/render.py</code></td><td>记忆框绘制（密虚线 + "·记忆"），与实测框区分</td></tr>
+        <tr><td><code>trafficvision/state.py</code></td><td>路灯/信号灯加入"静止豁免"名单</td></tr>
+        <tr><td><code>trafficvision/cli.py</code></td><td>默认权重改为合并模型；新增静态地图相关开关</td></tr>
+        <tr><td><code>bench/bollard_probe.py</code></td><td><b>新增</b>：路桩漏检诊断（多权重 × 多提示词 × 低阈值）</td></tr>
+        <tr><td><code>bench/relabel_videoset_02.py</code></td><td><b>新增</b>：按新口径重标注 + 跨帧投票清洗</td></tr>
+        <tr><td><code>bench/make_static_review.py</code></td><td><b>新增</b>：静态位置清单</td></tr>
+        <tr><td><code>bench/make_review_pack.py</code></td><td>支持任意类别表（读数据集自带 <code>classes.txt</code>）</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>新增的运行开关</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>开关</th><th>默认</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>--static-map / --no-static-map</code></td><td>开</td><td>静态目标回档机制总开关</td></tr>
+        <tr><td><code>--static-conf</code></td><td>0.05</td><td>静态通道阈值（越低召回越高，假阳性交给投票否决）</td></tr>
+        <tr><td><code>--static-imgsz</code></td><td>1280</td><td>静态通道分辨率</td></tr>
+        <tr><td><code>--static-stride</code></td><td>3</td><td>每 N 帧扫一次</td></tr>
+        <tr><td><code>--static-classes</code></td><td>全部四类</td><td>只对指定静态类写隐标记，例如 <code>--static-classes bollard,sign</code> 可显著减少画面拥挤</td></tr>
+        <tr><td><code>--merge-names / --no-merge-names</code></td><td>开</td><td>两三轮合并为 nonmotor</td></tr>
+        <tr><td><code>--world / --no-world</code></td><td>自动</td><td>按权重文件名判断是否开放词汇模型</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>产物位置</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>内容</th><th>路径</th></tr></thead>
+      <tbody>
+        <tr><td>诊断原始数据</td><td><code>outputs/probe_bollard/112222.json</code>、<code>112254.json</code></td></tr>
+        <tr><td>静态地图运行记录</td><td><code>outputs/static_demo/*.json</code>（含每个隐标记的位置与一致性比例）</td></tr>
+        <tr><td>新标注集</td><td><code>datasets/videoset_02_label2</code>（含 <code>relabel_report.json</code>）</td></tr>
+        <tr><td>位置清单</td><td><code>outputs/static_review_v2/index.html</code></td></tr>
+        <tr><td>帧级复核包</td><td><code>outputs/review_videoset_02_v2/index.html</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>一句话总结</h3>
+  <p>路桩漏检不是模型不行，是<b>标注时用词太窄</b>——一个词把整整一类目标挡在了训练集之外，
+  而模型只能学会它见过的东西。你提的"回档查看 + 隐标记"正好绕开了这个死结：
+  它不依赖单帧检测的稳定性，只依赖"同一个位置在整段视频里反复出现"，因此现在就能用。</p>
+</section>
+
+<!-- ================= 9 ================= -->
+<section id="s9" class="reveal">
+  <h2>九、补丁：上下文校验（空识别 / 路肩 / 广告牌）</h2>
+  <p class="h2sub">针对你第二批反馈专门加的一道校验。你的诊断——"对周遭的物体考量不清晰"——是准确的。</p>
+
+  <div class="note warnbox">
+    <b>为什么跨帧投票不够。</b>投票只回答了一个问题：<b>这个位置稳不稳定</b>。
+    它回答不了<b>这个位置到底是什么东西</b>。而花坛边缘、路缘石、红色广告牌
+    恰恰都是常年不动的——任意一个弱提示词稳定地打在上面，就会一路通过 80% 的一致性检验。
+    实测：被否掉的位置里，CLIP 判词出现最多的是"a painted curb along a flower bed"
+    和"a shop billboard with large text on a building"。
+  </div>
+
+  <h3>做法：把周围一起看</h3>
+  <ol>
+    <li>把每个位置<b>连周围画面</b>一起裁出来（向外扩 1.8 倍、短边至少 200px）——
+        关键是让模型看见"它站在什么上面、挨着什么"；</li>
+    <li>用 CLIP 零样本在正例/反例词表上打分。路桩的正例是"a concrete bollard
+        post standing on the ground"，反例是"a painted curb along a flower bed"
+        "a flower bed full of orange flowers""empty asphalt road surface"等；</li>
+    <li>多帧裁剪取概率均值，降低单帧偶然性。</li>
+  </ol>
+
+  <h3>你标出的 6 个，逐个核对</h3>
+  <div class="tw">
+    <table>
+      <caption>位置清单编号与你的截图一一对应（用图像相似度匹配回编号，相似度 1.000）。</caption>
+      <thead><tr><th class="num">编号</th><th>类别</th><th>你的判断</th><th>CLIP 判词</th><th class="num">处置</th></tr></thead>
+      <tbody>
+        <tr><td class="num">#3</td><td>路桩</td><td>空识别</td><td>a traffic signal pole</td><td class="num" style="color:var(--bad)">直接否掉</td></tr>
+        <tr><td class="num">#10</td><td>路桩</td><td>空识别</td><td>a road surface with white pedestrian crossing stripes</td><td class="num" style="color:var(--bad)">直接否掉</td></tr>
+        <tr><td class="num">#41</td><td>路桩</td><td>路肩误识别</td><td><b>a painted curb along a flower bed</b></td><td class="num" style="color:var(--bad)">直接否掉</td></tr>
+        <tr><td class="num">#60</td><td>标志牌</td><td>广告牌误识别</td><td>a shop billboard with large text on a building</td><td class="num" style="color:var(--warn)">降级待确认</td></tr>
+        <tr><td class="num">#173</td><td>标志牌</td><td>空识别</td><td>a road direction sign board</td><td class="num" style="color:var(--warn)">降级待确认</td></tr>
+        <tr><td class="num">#7</td><td>路桩</td><td>空识别</td><td>a road surface with white pedestrian crossing stripes</td><td class="num" style="color:var(--warn)">降级待确认</td></tr>
+      </tbody>
+    </table>
+    <p class="cvtip">#41 与 #60 是这套机制最漂亮的两例：CLIP 在完全没有被告知"这是路缘石/广告牌"的情况下，
+    自己给出了"贴着花坛的涂装路缘石""建筑上的大型文字广告牌"——和你的判断一字不差。</p>
+  </div>
+
+  <div class="note okbox">
+    <b>设计原则：代价不对称。</b>误删一个真目标，正是你最开始抱怨的那个问题（路桩看不见），代价高；
+    留着一个误检，它会出现在清单里，你扫一眼就能划掉，代价低。<b>所以规则整体偏向保留</b>：
+    只对证据确凿的（正例概率 ≤0.25、反例以 ≥0.60 决定性胜出、框大到占画面 2%~14% 这种明显不合理的）
+    直接否掉，拿不准的一律降级成"待确认"交给人看，而不是替你做决定。
+  </div>
+
+  <div class="note badbox">
+    <b>踩过的坑：硬阈值会顾此失彼。</b>第一版给"路桩最小边 16px"这类硬规则，
+    结果把远处<b>真正的路灯</b>成片杀掉——#58/#92/#114/#115 都是 12~15px 宽、60~100px 高，
+    CLIP 明确判为路灯（正例概率 0.57~0.75），却因为"最小边不够"被删。
+    这就是你说的"不要因为一两个样本顾此失彼"。改成：<b>尺寸问题只降级、不删除</b>，
+    只有长边都不到 20px（两个方向都没有信息量）才直接否掉。
+  </div>
+
+  <h3>三分区结果</h3>
+  <div class="card">
+    <div class="chart" id="chart-three"></div>
+    <div class="cvtip">位置清单 v3 把 282 个位置分成三档，页面按"待确认 → 已否掉 → 保留"排序，
+    最需要你花时间的排在最前面。</div>
+  </div>
+
+  <div class="grid g4" style="margin-top:14px">
+    <div class="stat"><div class="lbl">保留</div><div class="val up">136</div><div class="note">通过校验</div></div>
+    <div class="stat"><div class="lbl">待确认</div><div class="val flat">63</div><div class="note">证据不足或目标偏小，请你扫一眼</div></div>
+    <div class="stat"><div class="lbl">已否掉</div><div class="val down">83</div><div class="note">明确不像目标物，产品里不画</div></div>
+    <div class="stat"><div class="lbl">否掉率</div><div class="val">29%</div><div class="note">v2 原始清单里近三成是误检</div></div>
+  </div>
+
+  <h3>已接入产品主流程</h3>
+  <p>不只是复核工具——同一套校验现在跑在 <code>trafficvision</code> 主流程里：
+    投票确认后对每个位置做一次上下文校验，<b>明确否掉的不再画到画面上</b>，待确认的照旧画出来。
+    实测 VID_112222 前 90 帧：投票确认 19 个 → 上下文校验后 12 保留 + 3 待确认、4 个被剔除
+    （剔除的正是"building facade""shop sign""pedestrian crossing stripes"）。
+    开关 <code>--static-verify / --no-static-verify</code>，默认开。</p>
+
+  <div class="note">
+    <b>还需要你的 63 个"待确认"。</b>入口：<code>outputs\static_review_v3\index.html</code>。
+    这一档全是模型拿不准的（反例略占优、或目标太小），也正是最值得人看一眼的部分。
+    "已否掉"那一档也建议扫一眼——如果里面有你觉得该留的，直接报编号即可。
+  </div>
+</section>
+
+<footer>
+  第二轮报告 · 生成于 2026-10-06 · 全部数字来自 <code>bench/bollard_probe.py</code>、
+  <code>bench/relabel_videoset_02.py</code>、<code>bench/make_static_review.py</code> 与
+  <code>trafficvision</code> 的实际运行输出，未做估算。标注真值仍为自动标注，复核后需重算。
+</footer>
+
+</div>
+
+<script>
+"use strict";
+(function(){
+  var root = document.documentElement, saved = null;
+  try { saved = localStorage.getItem("tvp2-theme"); } catch (e) {}
+  if (!saved) saved = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+  root.setAttribute("data-theme", saved);
+  var btn = document.getElementById("themebtn");
+  function paint(){ btn.textContent = root.getAttribute("data-theme") === "dark" ? "浅色" : "深色"; }
+  paint();
+  btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("tvp2-theme", next); } catch (e) {}
+    paint(); drawAll();
+  });
+})();
+
+var NS = "http://www.w3.org/2000/svg";
+function cssv(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#666"; }
+function node(tag, attrs, text){
+  var e = document.createElementNS(NS, tag);
+  for (var k in attrs) { if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]); }
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function clear(el){ while (el.firstChild) el.removeChild(el.firstChild); }
+function fmt(v,d){ return (Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toFixed(d); }
+function niceTicks(max,n){
+  var raw=max/n, mag=Math.pow(10,Math.floor(Math.log10(raw))), norm=raw/mag;
+  var step=(norm<=1?1:norm<=2?2:norm<=5?5:10)*mag, out=[], v=0;
+  while (v<=max+step*0.001){ out.push(v); v+=step; }
+  return out;
+}
+function pal(){
+  return { s1:cssv("--s1"), s2:cssv("--s2"), s3:cssv("--s3"), s4:cssv("--s4"),
+           s5:cssv("--s5"), s6:cssv("--s6"), fg:cssv("--fg"), muted:cssv("--muted"),
+           line:cssv("--line"), ok:cssv("--ok"), bad:cssv("--bad"), warn:cssv("--warn") };
+}
+
+function groupedBars(host, cats, series, opts){
+  opts = opts || {};
+  var W = Math.max(320, host.clientWidth || 680), H = opts.height || 300;
+  var m = { t: 20, r: 16, b: opts.rot ? 66 : 46, l: 56 };
+  var pw = W-m.l-m.r, ph = H-m.t-m.b, top = 0;
+  series.forEach(function(s){ s.data.forEach(function(v){ if (v>top) top=v; }); });
+  if (opts.ref != null && opts.ref > top) top = opts.ref;
+  top = top*1.15 || 1;
+  var svg = node("svg", { viewBox:"0 0 "+W+" "+H, width:"100%", height:H, role:"img", "aria-label": opts.aria || "柱状图" });
+  var ticks = niceTicks(top,4); top = ticks[ticks.length-1];
+  var Y = function(v){ return m.t + ph*(1 - v/top); };
+  ticks.forEach(function(t){
+    svg.appendChild(node("line",{x1:m.l,x2:m.l+pw,y1:Y(t),y2:Y(t),stroke:cssv("--line")}));
+    svg.appendChild(node("text",{x:m.l-8,y:Y(t)+4,"text-anchor":"end",fill:cssv("--muted"),"font-size":11},
+      opts.refY ? fmt(t,opts.dec||0) : fmt(t, top<=1.2?2:(top<=6?1:0))));
+  });
+  var gw = pw/cats.length, bw = Math.min(44, gw*0.72/series.length);
+  cats.forEach(function(c,i){
+    var cx = m.l + gw*i + gw/2;
+    series.forEach(function(s,j){
+      var v = s.data[i];
+      var bx = cx - bw*series.length/2 + bw*j;
+      var r = node("rect",{x:bx,y:Y(v),width:bw-2,height:Math.max(1,ph*v/top),rx:3,fill:s.color});
+      r.appendChild(node("title",{},s.name+" · "+c.replace(/\n/g," ")+"："+fmt(v, opts.vd===undefined?2:opts.vd)));
+      svg.appendChild(r);
+      svg.appendChild(node("text",{x:bx+(bw-2)/2,y:Y(v)-5,"text-anchor":"middle",fill:cssv("--fg"),"font-size":10},
+        fmt(v, opts.vd===undefined?2:opts.vd)));
+    });
+    var tx = cx, ty = m.t+ph+16;
+    var t = node("text",{x:tx,y:ty,"text-anchor":"middle",fill:cssv("--muted"),"font-size":11.5}, c);
+    if (opts.rot){ t.setAttribute("transform","rotate(-22 "+tx+" "+ty+")"); t.setAttribute("text-anchor","end"); }
+    svg.appendChild(t);
+  });
+  if (opts.ref != null){
+    svg.appendChild(node("line",{x1:m.l,x2:m.l+pw,y1:Y(opts.ref),y2:Y(opts.ref),
+      stroke:cssv("--warn"),"stroke-width":2,"stroke-dasharray":"7 5"}));
+    svg.appendChild(node("text",{x:m.l+pw-4,y:Y(opts.ref)-6,"text-anchor":"end",
+      fill:cssv("--warn"),"font-size":11}, opts.refLabel||""));
+  }
+  if (opts.yLabel) svg.appendChild(node("text",{x:12,y:m.t+ph/2,fill:cssv("--muted"),"font-size":11,
+    "text-anchor":"middle",transform:"rotate(-90 12 "+(m.t+ph/2)+")"},opts.yLabel));
+  clear(host); host.appendChild(svg);
+}
+
+function hBars(host, items, opts){
+  opts = opts||{};
+  clear(host);
+  var max = 0;
+  items.forEach(function(it){ it.bars.forEach(function(b){ if (b.value>max) max=b.value; }); });
+  max = max*1.02 || 1;
+  items.forEach(function(it){
+    var row=document.createElement("div");
+    row.setAttribute("style","display:grid;grid-template-columns:"+(opts.labelW||140)+"px 1fr "+(opts.valW||110)+"px;gap:12px;align-items:center;margin:9px 0");
+    var lab=document.createElement("div"); lab.setAttribute("style","font-size:13px"); lab.textContent=it.label;
+    var track=document.createElement("div"); track.setAttribute("style","display:flex;flex-direction:column;gap:4px");
+    it.bars.forEach(function(b){
+      var bar=document.createElement("div");
+      bar.setAttribute("style","height:"+(opts.barH||10)+"px;border-radius:5px;background:"+b.color+";width:"+Math.max(1.5,100*b.value/max)+"%");
+      bar.title=b.name+"："+opts.fmt(b.value);
+      track.appendChild(bar);
+    });
+    var val=document.createElement("div");
+    val.setAttribute("style","font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums");
+    val.textContent=it.bars.map(function(b){return opts.fmt(b.value);}).join("  →  ");
+    row.appendChild(lab); row.appendChild(track); row.appendChild(val);
+    host.appendChild(row);
+  });
+}
+
+/* ---------- 数据 ---------- */
+var PROMPT = {
+  cats: ["中间路桩\n(x=0.20)", "右侧路桩\n(x=0.37)"],
+  series: [
+    { name: '"bollard"（当时用的）', key:'s1', data:[0.032, 0.164] },
+    { name: '"traffic bollard"', key:'s2', data:[0.094, 0.361] },
+    { name: '"barrier post"', key:'s3', data:[0.494, 0.555] },
+    { name: '"concrete bollard"', key:'s5', data:[0.682, 0.556] }
+  ]
+};
+
+var VOTE = {
+  cats: ["VID_112222（300 帧）", "VID_112254（300 帧）"],
+  confirmed: [17, 26],
+  rejected: [44, 32]
+};
+
+var RATIO = [
+  { label:"汽车 car", v:1.00 }, { label:"卡车 truck", v:0.99 }, { label:"公交 bus", v:1.01 },
+  { label:"非机动车 nonmotor", v:1.02 }, { label:"行人 person", v:0.84 },
+  { label:"路桩 bollard", v:5.44 }, { label:"标志牌 sign", v:9.94 }
+];
+
+var NEWCLS = [
+  { label:"信号灯 trafficlight", v:3712 },
+  { label:"路灯 roadlamp", v:2876 },
+  { label:"非机动车驾驶员 rider", v:580 }
+];
+
+var THREE = {
+  cats: ["路桩 bollard", "标志牌 sign", "路灯 roadlamp", "信号灯 trafficlight"],
+  keep:   [13, 18, 36, 69],
+  review: [ 8, 12, 29, 14],
+  reject: [16, 16, 26, 25]
+};
+
+/* ---------- 绘制 ---------- */
+function drawPrompt(){
+  var p = pal();
+  groupedBars(document.getElementById("chart-prompt"), PROMPT.cats,
+    PROMPT.series.map(function(s){ return { name:s.name, color:p[s.key], data:s.data }; }),
+    { yLabel:"置信度", ref:0.15, refLabel:"标注流程阈值 0.15", vd:3, vdTop:1, height:320 });
+  renderLegend("leg-prompt", PROMPT.series);
+}
+
+function renderLegend(id, series){
+  var host = document.getElementById(id);
+  if (!host) return;
+  clear(host);
+  var p = pal();
+  series.forEach(function(s){
+    var sp = document.createElement("span");
+    var sw = document.createElement("i"); sw.className = "sw"; sw.style.background = p[s.key];
+    sp.appendChild(sw); sp.appendChild(document.createTextNode(s.name));
+    host.appendChild(sp);
+  });
+}
+
+function drawVote(){
+  var p = pal();
+  groupedBars(document.getElementById("chart-vote"), VOTE.cats,
+    [ { name:"写入隐标记", color:p.s5, data:VOTE.confirmed },
+      { name:"投票否决（偶发误检）", color:p.muted, data:VOTE.rejected } ],
+    { yLabel:"静态目标簇数量", vd:0, height:280 });
+  var host = document.getElementById("leg-vote");
+  clear(host);
+  [["写入隐标记", p.s5], ["投票否决（偶发误检）", p.muted]].forEach(function(pair){
+    var sp = document.createElement("span");
+    var sw = document.createElement("i"); sw.className = "sw"; sw.style.background = pair[1];
+    sp.appendChild(sw); sp.appendChild(document.createTextNode(pair[0]));
+    host.appendChild(sp);
+  });
+}
+
+function drawRatio(){
+  var p = pal();
+  hBars(document.getElementById("chart-ratio"), RATIO.map(function(r){
+    return { label:r.label, bars:[{ name:"新旧倍数", value:r.v, color: r.v>=2 ? p.s5 : (r.v<0.9 ? p.s4 : p.muted) }] };
+  }), { labelW:150, valW:96, fmt:function(v){ return fmt(v,2)+"×"; }, barH:11 });
+  var tip = document.createElement("div");
+  tip.className = "cvtip";
+  tip.textContent = "1.00× = 与旧标注完全一致。路桩 5.44×、标志牌 9.94× 是提示词集成带来的增益。";
+  document.getElementById("chart-ratio").appendChild(tip);
+}
+
+function drawNew(){
+  var p = pal();
+  hBars(document.getElementById("chart-new"), NEWCLS.map(function(r){
+    return { label:r.label, bars:[{ name:"框数", value:r.v, color:p.s1 }] };
+  }), { labelW:170, valW:90, fmt:function(v){ return String(Math.round(v)); }, barH:12 });
+}
+
+function drawThree(){
+  var p = pal();
+  groupedBars(document.getElementById("chart-three"), THREE.cats,
+    [ { name:"保留", color:p.s5, data:THREE.keep },
+      { name:"待确认", color:p.warn, data:THREE.review },
+      { name:"已否掉", color:p.s4, data:THREE.reject } ],
+    { yLabel:"位置数", vd:0, height:290, rot:true });
+}
+
+function drawAll(){
+  try { drawPrompt(); } catch (e) {}
+  try { drawVote(); } catch (e) {}
+  try { drawRatio(); } catch (e) {}
+  try { drawNew(); } catch (e) {}
+  try { drawThree(); } catch (e) {}
+}
+
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll("nav.toc a"));
+  var secs = links.map(function(a){ return document.querySelector(a.getAttribute("href")); });
+  function onScroll(){
+    var y = window.scrollY + 120, best = 0;
+    secs.forEach(function(s,i){ if (s && s.offsetTop <= y) best = i; });
+    links.forEach(function(a,i){ a.classList.toggle("active", i===best); });
+  }
+  window.addEventListener("scroll", onScroll, { passive:true });
+  onScroll();
+  if ("IntersectionObserver" in window){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { rootMargin:"0px 0px -8% 0px" });
+    document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
+  } else {
+    document.querySelectorAll(".reveal").forEach(function(el){ el.classList.add("in"); });
+  }
+})();
+
+var rt = null;
+window.addEventListener("resize", function(){
+  clearTimeout(rt);
+  rt = setTimeout(function(){ try { drawAll(); } catch (e) {} }, 160);
+});
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", drawAll);
+else drawAll();
+</script>
+</body>
+</html>

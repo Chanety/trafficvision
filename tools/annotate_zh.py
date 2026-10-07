@@ -30,9 +30,23 @@ import cv2
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASET = ROOT / "datasets" / "videoset_01_label"
+
+
+def resolve_dataset() -> Path:
+    """数据集目录：命令行第一个参数优先，默认仍是 videoset_01_label。
+
+    用法：python tools/annotate_zh.py datasets/videoset_02_label
+    """
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+        given = Path(sys.argv[1])
+        return given if given.is_absolute() else (ROOT / given)
+    return ROOT / "datasets" / "videoset_01_label"
+
+
+DATASET = resolve_dataset()
 IMAGES = DATASET / "images"
 LABELS = DATASET / "labels"
+REVIEW_ORDER = DATASET / "review_order.txt"   # 可选：人工复核的优先顺序
 
 sys.path.insert(0, str(ROOT))
 from trafficvision.labelrules import suppress_riders  # noqa: E402
@@ -50,8 +64,9 @@ from PyQt5.QtWidgets import (  # noqa: E402
 )
 
 # 类别（顺序必须与 classes.txt 一致，决定了训练时的类别编号）
-CLASS_NAMES = ["car", "truck", "bus", "motorcycle", "bicycle", "person", "sign", "bollard"]
-CLASS_CN = ["汽车", "卡车", "公交", "摩托", "自行车", "行人", "标志牌", "路桩"]
+CLASS_NAMES = ["car", "truck", "bus", "motorcycle", "bicycle", "person",
+               "sign", "bollard", "tricycle"]
+CLASS_CN = ["汽车", "卡车", "公交", "摩托", "自行车", "行人", "标志牌", "路桩", "三轮车"]
 CLASS_COLORS = [
     QColor(80, 220, 80),
     QColor(255, 150, 0),
@@ -61,6 +76,7 @@ CLASS_COLORS = [
     QColor(60, 220, 255),
     QColor(255, 255, 255),
     QColor(150, 150, 255),
+    QColor(0, 215, 255),
 ]
 
 
@@ -333,7 +349,7 @@ class Canvas(QWidget):
                 self.window.refresh_status()
                 self.update()
             return
-        if Qt.Key_1 <= key <= Qt.Key_6:
+        if Qt.Key_1 <= key <= Qt.Key_9:
             idx = key - Qt.Key_1
             if 0 <= self.selected < len(self.boxes):
                 self.push_history()
@@ -445,10 +461,23 @@ class Canvas(QWidget):
 
 
 class MainWindow(QMainWindow):
+    @staticmethod
+    def _ordered_images() -> list[Path]:
+        """按 review_order.txt 排优先顺序（值钱的帧放前面，可随时收工）；无该文件则按文件名。"""
+        every = sorted(IMAGES.glob("*.jpg"))
+        if not REVIEW_ORDER.exists():
+            return every
+        wanted = [line.strip() for line in
+                  REVIEW_ORDER.read_text(encoding="utf-8").splitlines() if line.strip()]
+        by_name = {p.name: p for p in every}
+        ordered = [by_name[name] for name in wanted if name in by_name]
+        taken = {p.name for p in ordered}
+        return ordered + [p for p in every if p.name not in taken]
+
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("交通标注工具 · 中文版 v2")
-        self.images = sorted(IMAGES.glob("*.jpg"))
+        self.images = self._ordered_images()
         if not self.images:
             raise SystemExit(f"没有找到图片，请先运行 bench/make_label_set.py：{IMAGES}")
         self.index = 0
@@ -675,7 +704,8 @@ class MainWindow(QMainWindow):
 
 
 def main() -> None:
-    app = QApplication(sys.argv)
+    # 只把程序名交给 Qt：数据集目录参数是我们自己的，别让 Qt 去解析
+    app = QApplication([sys.argv[0]])
     # 内置深色样式：不依赖第三方主题包，避免缓存目录权限问题
     app.setStyleSheet(
         "QMainWindow, QWidget{background:#232629; color:#e8e8e8;}"

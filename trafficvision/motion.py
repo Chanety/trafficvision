@@ -10,7 +10,15 @@ from collections import deque
 
 import numpy as np
 
-from .config import MIN_SPEED_PX_S, MIN_TRACK_AGE, TRAIL_SECONDS
+from .config import (
+    MANEUVER_DEV_PX,
+    MANEUVER_MIN_MOVE_PX,
+    MANEUVER_TURN_DEG_S,
+    MANEUVER_WINDOW_S,
+    MIN_SPEED_PX_S,
+    MIN_TRACK_AGE,
+    TRAIL_SECONDS,
+)
 
 
 class ConstantVelocityKF:
@@ -260,6 +268,48 @@ class TrackMotion:
         if self.speed > 2500.0:
             return False
         return True
+
+    def turn_rate_deg_s(self, window: float = MANEUVER_WINDOW_S) -> float | None:
+        """最近 window 秒的转角速度（度/秒，正负表示左右转）。
+
+        静止目标的中心点是噪声，航向会随机跳，硬估出来的"转角"能到几十度/秒，
+        因此要求窗口内真的移动了 MANEUVER_MIN_MOVE_PX 才给结果。
+        """
+        if self.last_t is None or len(self.samples) < 5:
+            return None
+        seg = [s for s in self.samples if s[0] >= self.last_t - window]
+        if len(seg) < 4:
+            return None
+        pts = np.array([[s[1], s[2]] for s in seg], dtype=float)
+        ts = np.array([s[0] for s in seg], dtype=float)
+        steps = np.diff(pts, axis=0)
+        dist = np.linalg.norm(steps, axis=1)
+        good = dist > 0.5
+        if good.sum() < 3 or float(dist[good].sum()) < MANEUVER_MIN_MOVE_PX:
+            return None
+        headings = np.unwrap(np.arctan2(steps[good, 1], steps[good, 0]))
+        t_mid = ts[:-1][good]
+        design = np.vstack([t_mid - t_mid.mean(), np.ones_like(t_mid)]).T
+        omega, _ = np.linalg.lstsq(design, headings, rcond=None)[0]
+        return float(np.degrees(omega))
+
+    def maneuver(self, horizon: float) -> tuple[bool, float | None, float]:
+        """判断目标在该梯度上是否处于机动（转弯/变道）：返回 (机动, 转角, 偏离px)。
+
+        偏离量 = 按当前转角与速度，在 horizon 秒后偏离直线匀速轨迹的距离：
+        (v/ω)(1-cos(ωh))。它同时考虑"转得多快"和"跑得多快"，比单看角度更贴近误差。
+        """
+        omega = self.turn_rate_deg_s()
+        if omega is None or self.speed < MIN_SPEED_PX_S:
+            return False, omega, 0.0
+        rad = abs(np.radians(omega))
+        speed = self.speed
+        if rad > 1e-6:
+            deviation = (speed / rad) * (1.0 - np.cos(rad * horizon))
+        else:
+            deviation = 0.5 * speed * rad * horizon ** 2
+        flag = abs(omega) >= MANEUVER_TURN_DEG_S or deviation >= MANEUVER_DEV_PX
+        return bool(flag), omega, float(deviation)
 
     def predict_box(self, horizon: float) -> tuple[float, float, float, float] | None:
         """返回预判时刻的包围框（沿用当前框大小）。"""

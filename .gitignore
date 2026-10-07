@@ -42,3 +42,9 @@ datasets/
 *.onnx
 *.mp4
 *.gif
+
+# 本地改动前的快照备份（重复的代码/文档/权重，不入库）
+backups/
+
+# 分发给他人的人工复核批次包（体积大，放独立分支，见 tools/dataset_batches/README.md）
+/dataset_batches/
