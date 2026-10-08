@@ -290,6 +290,7 @@ def prune_static(out: Path, manifest: list[dict]) -> int:
         by_video.setdefault(m["source_video"], []).append(m)
 
     dropped = 0
+    unpruned = 0
     for video, items in by_video.items():
         items.sort(key=lambda z: z["frame_index"])
         smap = StaticObjectMap()
@@ -311,10 +312,19 @@ def prune_static(out: Path, manifest: list[dict]) -> int:
                     boxes.append((cid, name, box))
             frames.append(boxes)
             statics = [(name, box, 1.0) for _cid, name, box in boxes if name in STATIC_CLASSES]
-            smap.observe(i, statics, dynamics=[], span=1)
+            # dynamics 必须来自同帧的**非静态**标注，否则遮挡永远不计入
+            # 可见性判断——被车/人挡住的真静态目标会因为分母错误而被当成漏检删掉。
+            dynamics = [{"bbox": box} for _cid, name, box in boxes
+                        if name not in STATIC_CLASSES]
+            smap.observe(i, statics, dynamics=dynamics, span=1)
 
         confirmed = smap.confirmed()
         if not confirmed:
+            # 一个位置都没通过一致性检验，通常意味着这批标注的静态类基本是偶发误检
+            # （或全部被遮挡）。此时静默跳过等于"一个都不清"，必须显式提示。
+            print(f"[警告] {video}：没有任何静态位置通过一致性检验，"
+                  f"该段未做清理，请人工确认")
+            unpruned += 1
             continue
         from trafficvision.staticmap import iou as _iou
 
@@ -337,6 +347,9 @@ def prune_static(out: Path, manifest: list[dict]) -> int:
                 m["merged_boxes"] = len(keep)
     (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2),
                                        encoding="utf-8")
+    if unpruned:
+        print(f"[提示] 共 {unpruned} 段视频未做清理（没有任何位置通过一致性检验），"
+              f"这些段的静态标注保持原样，需人工复核")
     return dropped
 
 

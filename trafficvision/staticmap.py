@@ -173,10 +173,18 @@ class StaticObjectMap:
         return best if best_iou >= self.match_iou else None
 
     # ---------------------------------------------------------------- 合并
-    def _should_merge(self, a, b) -> bool:
-        """同一个物理目标的碎片（灯头/灯杆/灯箱各自成簇）应该并回一个。"""
+    def _should_merge(self, cls: str, a, b) -> bool:
+        """同一个物理目标的碎片（灯头/灯杆/灯箱各自成簇）应该并回一个。
+
+        注意：按"中心距 < 较大框长边 × 0.5"合并对灯头/灯杆有效，
+        但对**并排路桩**可能过强——两根相邻路桩的中心距与框高同量级。
+        因此对 bollard 只认 IoU，不做中心距合并（实测并排路桩间距 ≈ 1.5~2 倍
+        框高，IoU 判据下天然不会误并）。
+        """
         if iou(a, b) >= self.merge_iou:
             return True
+        if cls == "bollard":
+            return False
         (ax, ay), (bx, by) = _center(a), _center(b)
         gap = ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
         return gap <= self.merge_dist * max(_long_side(a), _long_side(b))
@@ -189,7 +197,7 @@ class StaticObjectMap:
             for i in range(n):
                 for j in range(i + 1, n):
                     a, b = self.clusters[i], self.clusters[j]
-                    if a.cls != b.cls or not self._should_merge(a.box, b.box):
+                    if a.cls != b.cls or not self._should_merge(a.cls, a.box, b.box):
                         continue
                     a.boxes.extend(b.boxes)
                     a.seen |= b.seen
