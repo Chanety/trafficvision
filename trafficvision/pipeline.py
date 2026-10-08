@@ -149,7 +149,7 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
                   coast_frames: int = COAST_FRAMES, horizon: float = 1.0,
                   gate_maneuver: bool = False, nms_iou: float = NMS_IOU,
                   merge_names: bool = True,
-                  min_side: float = MIN_TARGET_SIDE_PX,
+                  min_side: float | None = None,
                   min_area: float = MIN_TARGET_AREA_PX):
     """逐帧检测+跟踪，产出逐帧目标列表与全部轨迹对象。"""
     cap = cv2.VideoCapture(str(video))
@@ -203,7 +203,7 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
                 bbox = [float(v) for v in boxes.xyxy[i]]
                 # 过小目标一律不识别（用户要求：动态静态一视同仁），
                 # 这类框既不可靠、画出来也只是噪声。
-                if target_too_small(bbox, min_side, min_area):
+                if target_too_small(bbox, cls_name, min_side, min_area):
                     too_small += 1
                     continue
                 raw_id = int(ids[i]) if ids is not None else -(index * 1000 + i + 1)
@@ -345,7 +345,7 @@ def scan_static_channel(video: str | Path, info: dict, weights: str | Path,
                         max_frames: int, device: str, conf: float = STATIC_CONF,
                         imgsz: int = STATIC_IMGSZ, stride: int = STATIC_STRIDE,
                         classes: tuple[str, ...] = STATIC_CLASSES,
-                        min_side: float = MIN_TARGET_SIDE_PX,
+                        min_side: float | None = None,
                         min_area: float = MIN_TARGET_AREA_PX) -> dict:
     """独立扫一遍静态目标（多提示词 + 低阈值），供 StaticObjectMap 投票。
 
@@ -397,7 +397,7 @@ def scan_static_channel(video: str | Path, info: dict, weights: str | Path,
                 continue
             box = [float(v) for v in b.xyxy[0]]
             # 静态目标同样适用"过小不识别"
-            if target_too_small(box, min_side, min_area):
+            if target_too_small(box, cls, min_side, min_area):
                 continue
             per.setdefault(cls, []).append((float(b.conf), box))
         dets: list[tuple[str, list[float], float]] = []
@@ -637,7 +637,7 @@ def run_clip(
     scene_prior: str | None = "auto",
     camera: str | None = None,
     merge_names: bool = True,
-    min_side: float = MIN_TARGET_SIDE_PX,
+    min_side: float | None = None,
     min_area: float = MIN_TARGET_AREA_PX,
     nms_iou: float = NMS_IOU,
 ) -> dict:

@@ -94,8 +94,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--camera", default=None,
                    help="机位名。同一机位的多段视频共用一份场景先验，"
                         "例如 --camera 路口A（默认取视频文件名）")
-    p.add_argument("--min-side", type=float, default=MIN_TARGET_SIDE_PX,
-                   help=f"过小目标不识别：短边下限，像素（默认 {MIN_TARGET_SIDE_PX:g}）")
+    p.add_argument("--min-side", type=float, default=None,
+                   help="过小目标不识别：短边下限，像素。默认按类别给不同门槛"
+                        "（行人 8 / 非机动车 14 / 汽车 10 / 静态结构 10，"
+                        "依据见 bench/min_size_sweep.py）；给了这个参数则全局覆盖")
     p.add_argument("--min-area", type=float, default=MIN_TARGET_AREA_PX,
                    help=f"过小目标不识别：面积下限，px²（默认 {MIN_TARGET_AREA_PX:g}）")
     return p

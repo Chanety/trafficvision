@@ -123,7 +123,8 @@ def size_ok(cls: str, box, frame_w: int, frame_h: int) -> tuple[bool, str]:
     """尺寸合理性检查，返回（是否合理, 原因）。"""
     w = box[2] - box[0]
     h = box[3] - box[1]
-    if min(w, h) < MIN_SIDE_PX.get(cls, 14.0):
+    from .config import min_side_for
+    if min(w, h) < min(min_side_for(cls), MIN_SIDE_PX.get(cls, 14.0)):
         return False, f"过小 {w:.0f}×{h:.0f}px"
     frac = (w * h) / float(frame_w * frame_h)
     if frac > MAX_AREA_FRAC.get(cls, 0.30):
@@ -169,7 +170,7 @@ def decide(cls: str, box, frame_w: int, frame_h: int, verdict: dict) -> tuple[st
         return "reject", f"框过大，占画面 {frac * 100:.1f}%"
     # 用户要求：过小目标一律不识别（动态静态同一标准），这里先按全局尺寸门槛否掉
     from .config import target_too_small
-    if target_too_small(box):
+    if target_too_small(box, cls):
         return "reject", f"过小（{w:.0f}×{h:.0f}px，面积 {w * h:.0f}px²）"
     if p_pos <= POS_ABSENT:
         return "reject", f"正例证据缺失（正例总概率 {p_pos:.2f}）"

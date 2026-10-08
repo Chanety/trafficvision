@@ -118,20 +118,48 @@ def display_name(cls_name: str) -> str:
 MIN_TRACK_AGE = 5          # 连续观测帧数不足则不给预判
 MIN_SPEED_PX_S = 8.0       # 近乎静止的目标不给预判
 
-# ---------------------------------------------------------------- 最小目标尺寸
-# 用户要求（2026-10-07）：
-#   "过小目标无需识别，不论是动态还是静态目标过小都不识别！"
-# 即：尺寸门槛要对动目标和静目标一视同仁，不搞两套标准。
+# ---------------------------------------------------------------- 最小目标尺寸（按类独立）
+# 用户 2026-10-08：
+#   "对于行人和车辆的标准应该是独立的，行人和非机动车应当适当宽容，
+#    最好有一种粗方法来决定以最小的综合开销进行这种筛选与过滤。"
 #
-# 阈值怎么定的（实测 4 段 videoset_02、90 帧、v7 @1280、conf 0.25，共 8000+ 框）：
-#   面积 <300px² 只占全部检测的 3.6%，但分布极不均匀——
-#     car 0.3% / nonmotor 0% / bus 0% / truck 0% / sign 0%（几乎无损失）
-#     person 13.9% / bollard 30.4%（代价集中在这两类）
-#   也就是说这个门槛拿掉的主要是"10~25px 的碎点"，不影响机动车。
-# 注意 bollard 的最小边中位数只有 13px，所以**不能**按最小边设 16px 以上，
-# 否则会把近处真路桩一起砍掉——这也是为什么用面积而不是边长做主判据。
-MIN_TARGET_SIDE_PX = 12.0   # 短边下限（挡住极端细长的噪声框）
-MIN_TARGET_AREA_PX = 300.0  # 面积下限（主判据）
+# 粗方法（脚本 bench/min_size_sweep.py，可复现）：**用时序一致性当"是不是真目标"的代理**。
+# 真目标在相邻帧会稳定复现，噪声不会。逐类统计各尺寸档的稳定率，
+# 取稳定率达标的最小尺寸作为该类门槛。
+# 实测（videoset_02 前 3 段 × 150 帧、v7@1280、conf 0.10，共 17119 框，整体稳定率 90.8%）：
+#
+#   类别        12px 以下   14~18px    32px 以上    数据说明
+#   car          44~80%     85~88%     92.8%       10px 以上即可
+#   person       83%        81~86%     93.8%       **小框大多是真人**，不该一刀切
+#   nonmotor     0~60%      60~74%     94.6%       **18px 以下确实不可靠**
+#   bollard      98~100%    96~100%    95.4%       静态结构小但极稳，不该收
+#   sign         —          —          99.5%       全部落在 40px 以上
+#
+# 关键发现：**真正需要收紧的是非机动车，不是行人**——行人的小检测大多是远处真人，
+# 而非机动车在 18px 以下是真实噪声。统一门槛会两头不讨好。
+MIN_SIDE_BY_CLASS: dict[str, float] = {
+    # 行人 / 骑乘者：最宽容（漏掉真人的代价高，且实测小框可信）
+    "person": 8.0,
+    "rider": 8.0,
+    # 两三轮：实测 18px 以下时序稳定率最低
+    "nonmotor": 14.0,
+    "motorcycle": 14.0,
+    "bicycle": 14.0,
+    "tricycle": 14.0,
+    # 机动车：车身大，几乎不受影响，设下限挡极端噪声
+    "car": 10.0,
+    "truck": 14.0,
+    "bus": 14.0,
+    # 静态结构：尺寸小但稳定率高（路桩 14~16px 档仍有 96~98%），不额外收紧
+    "sign": 10.0,
+    "bollard": 10.0,
+    "roadlamp": 10.0,
+    "trafficlight": 10.0,
+}
+DEFAULT_MIN_SIDE_PX = 10.0   # 未登记类别的兜底
+# 面积兜底：只挡"很长但极薄"的退化框（如 60×2 px），不承担主判据
+MIN_TARGET_AREA_PX = 120.0
+MIN_TARGET_SIDE_PX = DEFAULT_MIN_SIDE_PX   # 兼容旧签名（早期只有一个全局门槛）
 
 # NMS 阈值（同类框合并的松紧）。
 # 实测 2026-10-07：ultralytics 默认 0.7 在 imgsz=1280 下压不住"同一辆车出两个框"——
@@ -140,17 +168,29 @@ MIN_TARGET_AREA_PX = 300.0  # 面积下限（主判据）
 NMS_IOU = 0.5
 
 
-def target_too_small(box, min_side: float | None = None,
+def min_side_for(cls_name: str | None) -> float:
+    """取该类别的短边门槛。"""
+    if not cls_name:
+        return DEFAULT_MIN_SIDE_PX
+    return MIN_SIDE_BY_CLASS.get(cls_name, DEFAULT_MIN_SIDE_PX)
+
+
+def target_too_small(box, cls_name: str | None = None,
+                     min_side: float | None = None,
                      min_area: float | None = None) -> bool:
     """该检测框是否小到不值得识别（宽或高任一边为 0 也算）。
 
-    min_side / min_area 传入时覆盖配置默认值（CLI 的 --min-side/--min-area）。
+    优先级：显式 min_side（CLI 覆盖） > 按类门槛 > 兜底值；
+    min_area 只作为退化框的兜底。
     """
     w = box[2] - box[0]
     h = box[3] - box[1]
     if w <= 0 or h <= 0:
         return True
-    side = MIN_TARGET_SIDE_PX if min_side is None else float(min_side)
+    if min_side is not None:
+        side = float(min_side)
+    else:
+        side = min_side_for(cls_name)
     area = MIN_TARGET_AREA_PX if min_area is None else float(min_area)
     return min(w, h) < side or (w * h) < area
 
