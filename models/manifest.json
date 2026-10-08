@@ -1,0 +1,87 @@
+{
+  "说明": "本项目模型权重清单。权重文件体积较大，不随仓库分发（.gitignore 已排除 *.pt）；此处给出用途、类别口径与 SHA-256，便于校验下载到的文件是否一致。",
+  "类别口径": {
+    "schema_base_12": "0 car, 1 truck, 2 bus, 3 motorcycle, 4 bicycle, 5 person, 6 sign, 7 bollard, 8 tricycle, 9 roadlamp, 10 trafficlight, 11 rider",
+    "schema_merged_10": "0 car, 1 truck, 2 bus, 3 nonmotor(=3/4/8), 4 person, 5 sign, 6 bollard, 7 roadlamp, 8 trafficlight, 9 rider",
+    "schema_merged_7": "0 car, 1 truck, 2 bus, 3 nonmotor, 4 person, 5 sign, 6 bollard",
+    "schema_legacy_9": "0 car, 1 truck, 2 bus, 3 motorcycle, 4 bicycle, 5 person, 6 sign, 7 bollard, 8 tricycle"
+  },
+  "权重": [
+    {
+      "文件": "outputs/train/v7/weights/best.pt",
+      "用途": "**当前默认生产权重**。yolo11n 链式微调，7 类合并口径",
+      "类别口径": "schema_merged_7",
+      "大小MB": 5.23,
+      "sha256": "f3c4d98d1113d219873922ab75f2cff8e51f2e29b919235f75049bce3f0325d0",
+      "许可": "AGPL-3.0（由 Ultralytics 权重微调而来）"
+    },
+    {
+      "文件": "outputs/train/v9/weights/best.pt",
+      "用途": "10 类口径版本（含路灯/信号灯/非机动车驾驶员）。**训练中，未定稿**",
+      "类别口径": "schema_merged_10",
+      "大小MB": 20.31,
+      "sha256": "174f88c678077bf2bf4af07cd9307d42b2e2f5884208a936ebd94f90f9842aac",
+      "许可": "AGPL-3.0",
+      "备注": "SHA-256 为训练中途的检查点，训练完成后需重新登记"
+    },
+    {
+      "文件": "outputs/train/v8s/weights/best.pt",
+      "用途": "yolo11s 对照模型：精确率高、预判误差低 6~7%，但召回低 23%",
+      "类别口径": "schema_merged_7",
+      "大小MB": 18.31,
+      "sha256": "d329dc47c1026a7646447c5446c79d595965756f36e37cff6718bda0ea69bcb4",
+      "许可": "AGPL-3.0"
+    },
+    {
+      "文件": "outputs/train/v8n/weights/best.pt",
+      "用途": "同规格同配方的对照（从零训练），用于分离“模型容量”与“训练历史”两个因素",
+      "类别口径": "schema_merged_7",
+      "大小MB": 5.23,
+      "sha256": "def70a2ce4fc286a1695345e959a2d461acf3315bbeb0df0f6b5e3b90083bdcc",
+      "许可": "AGPL-3.0"
+    },
+    {
+      "文件": "outputs/train/v5/weights/best.pt",
+      "用途": "9 类口径，含 tricycle；并入 VisDrone 俯拍三轮车数据后的版本",
+      "类别口径": "schema_legacy_9",
+      "大小MB": 5.24,
+      "sha256": "c87326064e3d5534caa20bf278ac360c66a66a3b66efb200abca418c491b07fa",
+      "许可": "AGPL-3.0"
+    },
+    {
+      "文件": "outputs/train/v1/weights/best.pt",
+      "用途": "基线：仅用 219 张人工复核样本微调",
+      "类别口径": "schema_legacy_9",
+      "大小MB": 20.3,
+      "sha256": "f6492c544030039a29a1582db6ee0c9d3fddb2769df5a6f8f5760c62502e020b",
+      "许可": "AGPL-3.0"
+    }
+  ],
+  "上游基础权重（需另行下载，CC-BY/AGPL 归 Ultralytics）": [
+    {
+      "文件": "trafficlab-3d/repo/yolov8s-worldv2.pt",
+      "用途": "开放词汇检测与静态通道扫描（多提示词）；CLIP 文本编码依赖 clip 包",
+      "大小MB": 24.72,
+      "sha256": "9b2c17ab6124a913e9b3a5c170617920d91b0f01111a8479da69f00e2cf27792",
+      "来源": "Ultralytics 官方发布",
+      "许可": "AGPL-3.0"
+    },
+    {
+      "文件": "trafficlab-3d/repo/models/yolo11n.pt",
+      "用途": "微调起点",
+      "大小MB": 5.35,
+      "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+      "来源": "Ultralytics 官方发布",
+      "许可": "AGPL-3.0"
+    },
+    {
+      "文件": "weights/clip/ViT-B-32.pt",
+      "用途": "YOLO-World 文本编码 + 静态目标上下文校验",
+      "大小MB": 337.58,
+      "sha256": "40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af",
+      "来源": "OpenAI CLIP 官方发布",
+      "许可": "MIT"
+    }
+  ],
+  "获取方式": "微调权重以 Release 附件或网盘形式随作品成果链接提供；上游基础权重请从 Ultralytics / OpenAI 官方渠道获取。下载后可用 `python bench/verify_models.py` 校验 SHA-256（脚本见 models/README.md）。"
+}

@@ -1,0 +1,41 @@
+# 交通视频预判系统 · Python 依赖
+#
+# 版本与本项目实测环境完全一致（2026-10-08 从运行环境导出），
+# 用于复现 docs/ 中的全部指标。许可证逐项见 NOTICE 与
+# docs/竞赛材料/附件1-开源及第三方资源使用清单.md。
+#
+# 安装（CUDA 12.8+，适配 RTX 50 系 / Blackwell）：
+#   python -m pip install --index-url https://download.pytorch.org/whl/cu130 torch torchvision
+#   python -m pip install -r requirements.txt
+#
+# 无 GPU 时把 torch/torchvision 换成 CPU 版本即可运行，但速度会慢一到两个数量级。
+
+# ---- 核心运行时（AGPL-3.0，见 NOTICE）----
+ultralytics==8.4.171
+# 开放词汇文本编码。注意：PyPI 上的 clip 发行包内附 LICENSE 为 AGPL-3.0，
+# 与本项目整体许可一致；上游 OpenAI 官方仓库为 MIT，两者不一致，此处按最严处理。
+clip==1.0
+
+# ---- 深度学习框架（Apache-2.0 及若干兼容许可）----
+# CUDA 12.8+ 构建，Blackwell（算力 12.0）必须用 cu128 以上，否则会报找不到可用内核
+torch==2.14.1+cu130
+torchvision==0.29.1+cu130
+
+# ---- 视觉与数值 ----
+opencv-python==5.0.0.93
+numpy==2.4.6
+scipy==1.17.1
+pillow==12.3.0
+
+# ---- 工具与可视化 ----
+matplotlib==3.11.1
+pandas==3.0.5
+PyYAML==6.0.3
+requests==2.34.2
+tqdm==4.70.0
+psutil==7.2.2
+lap==0.5.13
+
+# clip 的文本处理依赖（通常会被自动装上，显式锁定以便复现）
+ftfy==6.3.1
+regex==2026.9.3

@@ -1,0 +1,50 @@
+交通视频短时预判系统
+Copyright (C) 2026 本项目贡献者
+
+本程序是自由软件：你可以依据自由软件基金会发布的 GNU Affero 通用公共许可证
+（第 3 版或你选择的任何更新版本）条款重新发布和/或修改它。
+本程序按"无任何担保"发布，甚至不包含适销性或特定用途适用性的默示担保。
+详见根目录 LICENSE 全文。
+
+--------------------------------------------------------------------------------
+第三方组件声明
+
+本程序使用了下列第三方开源软件、模型与数据。各组件版权归其原作者所有，
+并按其各自许可证授权使用。完整的名称、版本、来源、许可证、关键许可义务与
+自主开发边界，见 docs/竞赛材料/附件1-开源及第三方资源使用清单.md。
+
+核心运行时（AGPL-3.0，构成本作品不可分割的一部分）：
+  · Ultralytics YOLO  8.4.171            AGPL-3.0
+  · ultralytics-thop  2.2.2              AGPL-3.0
+  · Ultralytics 预训练权重（YOLO11n / YOLO11s / YOLOv8s-WorldV2）  AGPL-3.0
+  · 本项目微调权重 v1 ~ v9               由上述权重微调而来，承袭 AGPL-3.0
+  · clip  1.0（PyPI 发行包）             包内 LICENSE 为 AGPL-3.0
+                                         注：上游 OpenAI CLIP 官方仓库为 MIT，
+                                         两者不一致，本项目按最严（AGPL-3.0）处理
+
+其余组件（与本作品以兼容方式组合，不改变其原有许可）：
+  · PyTorch 2.14.1+cu130 / torchvision 0.29.1+cu130   Apache-2.0 及若干兼容许可
+  · opencv-python 5.0.0.93                            Apache-2.0
+  · NumPy 2.4.6 / SciPy 1.17.1 / pandas 3.0.5         BSD-3-Clause
+  · Pillow 12.3.0                                     MIT-CMU (HPND)
+  · matplotlib 3.11.1                                 PSF
+  · PyYAML 6.0.3                                      MIT
+  · Requests 2.34.2                                   Apache-2.0
+  · tqdm 4.70.0                                       MPL-2.0 AND MIT
+  · psutil 7.2.2                                      BSD-3-Clause
+  · regex 2026.9.3 / ftfy 6.3.1                       Apache-2.0
+  · lap 0.5.13                                        BSD-2-Clause
+  · filterpy（vendor/filterpy，仅取 IMM.py）           MIT
+  · Weighted-Boxes-Fusion（vendor/wbf）                MIT
+  · OpenAI CLIP ViT-B-32 权重                          MIT
+
+数据集声明：
+  · videoset_01 / videoset_02 为本项目自采，版权归采集者所有；
+    公开分发前须对人脸、车牌等个人信息做脱敏处理。
+  · VisDrone 为第三方公开数据集，按原始使用条款使用；本作品不随附分发其原始图像。
+
+--------------------------------------------------------------------------------
+许可合规要点（AGPL-3.0 第 13 条）
+
+若你通过网络向用户提供本程序的修改版本或衍生作品，必须向这些用户提供
+获取完整对应源代码的机会。本项目以 AGPL-3.0 开源发布，正是为满足这一义务。
