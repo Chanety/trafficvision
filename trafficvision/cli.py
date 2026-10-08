@@ -88,6 +88,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--static-verify", action=argparse.BooleanOptionalAction, default=True,
                    help="对隐标记位置做一次上下文校验（CLIP 判断它到底更像什么），"
                         "明确不像目标物的位置不画；拿不准的照旧画出来（默认开）")
+    p.add_argument("--scene-prior", default="auto",
+                   help="场景先验缓存：auto（默认）在同一机位首次运行时计算并落盘、"
+                        "之后直接加载；off 每次重算；也可给显式文件路径")
+    p.add_argument("--camera", default=None,
+                   help="机位名。同一机位的多段视频共用一份场景先验，"
+                        "例如 --camera 路口A（默认取视频文件名）")
     p.add_argument("--min-side", type=float, default=MIN_TARGET_SIDE_PX,
                    help=f"过小目标不识别：短边下限，像素（默认 {MIN_TARGET_SIDE_PX:g}）")
     p.add_argument("--min-area", type=float, default=MIN_TARGET_AREA_PX,
@@ -130,6 +136,8 @@ def main() -> None:
         static_stride=args.static_stride,
         static_classes=tuple(c.strip() for c in args.static_classes.split(",") if c.strip()),
         static_verify=args.static_verify,
+        scene_prior=args.scene_prior,
+        camera=args.camera,
         merge_names=args.merge_names,
         min_side=args.min_side,
         min_area=args.min_area,

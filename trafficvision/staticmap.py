@@ -20,7 +20,10 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
@@ -85,6 +88,12 @@ class _Cluster:
     first_frame: int = 0
     last_seen: int = 0
     best_conf: float = 0.0
+    # 从磁盘上的「场景先验」文件恢复出来的簇：不必重新投票，直接视为已确认，
+    # 但保留原始 ratio/seen/visible 供报告与排查引用。
+    forced: bool = False
+    meta: dict = field(default_factory=dict)
+    # 语义校验结论（keep / review / reject），落盘场景先验时需要带上
+    verify: str = "keep"
 
     @property
     def box(self) -> list[float]:
@@ -102,11 +111,15 @@ class _Cluster:
         早前只用 len(visible) 作分母，会把"隔着车流仍然检出"的帧算成矛盾，
         出现 ratio = 8.5 这种大于 1 的荒谬值。
         """
+        if self.forced:
+            return float(self.meta.get("ratio", 1.0))
         denom = len(self.visible | self.seen)
         return len(self.seen) / denom if denom else 0.0
 
     @property
     def denom(self) -> int:
+        if self.forced:
+            return int(self.meta.get("visible", 0))
         return len(self.visible | self.seen)
 
 
@@ -135,6 +148,7 @@ class StaticObjectMap:
         self.clusters: list[_Cluster] = []
         self.frames_observed = 0
         self.dropped_small = 0
+        self.prior_meta: dict = {}
 
     # ---------------------------------------------------------------- 遮挡
     def occluded(self, box, dynamics) -> bool:
@@ -232,6 +246,8 @@ class StaticObjectMap:
 
     # ---------------------------------------------------------------- 汇报
     def is_confirmed(self, c: _Cluster) -> bool:
+        if c.forced:
+            return True          # 来自场景先验文件，已在上次运行中确认过
         return (len(c.seen) >= self.min_frames
                 and c.denom > 0
                 and c.ratio >= self.min_ratio)
@@ -243,18 +259,20 @@ class StaticObjectMap:
                 continue
             seen = sorted(c.seen)
             sample = sorted({seen[0], seen[len(seen) // 2], seen[-1]}) if seen else []
+            meta = c.meta if c.forced else {}
             out.append({
                 "idx": idx,
                 "cls": c.cls,
                 "box": c.box,
                 "sample_frames": sample,
                 "ratio": round(c.ratio, 3),
-                "seen": len(c.seen),
-                "visible": len(c.visible),
-                "occluded": len(c.occluded),
-                "first_frame": c.first_frame,
-                "last_seen": c.last_seen,
-                "best_conf": round(c.best_conf, 3),
+                "seen": meta.get("seen", len(c.seen)),
+                "visible": meta.get("visible", len(c.visible)),
+                "occluded": meta.get("occluded", len(c.occluded)),
+                "first_frame": meta.get("first_frame", c.first_frame),
+                "last_seen": meta.get("last_seen", c.last_seen),
+                "best_conf": meta.get("best_conf", round(c.best_conf, 3)),
+                "verify": meta.get("verify", c.verify),
             })
         out.sort(key=lambda d: (-d["ratio"], -d["seen"]))
         return out
@@ -317,3 +335,52 @@ class StaticObjectMap:
             "by_class": {c: sum(1 for d in conf if d["cls"] == c) for c in sorted(self.classes)},
             "items": conf,
         }
+
+    # ---------------------------------------------------------------- 场景先验
+    # 摄像机是长期不动的，同一个机位的"哪些位置是固定结构"只需要算一次。
+    # 把结果落盘成场景先验文件，之后每段视频直接加载，省掉
+    # 「开放词汇扫描 + CLIP 校验」这两步（实测占端到端耗时的绝大部分）。
+    PRIOR_FORMAT = 1
+
+    def save_prior(self, path: str | Path, camera: str | None = None,
+                   frame_size: tuple[int, int] | None = None,
+                   extra: dict | None = None) -> Path:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "format": self.PRIOR_FORMAT,
+            "camera": camera,
+            "frame_size": list(frame_size) if frame_size else None,
+            "created": datetime.now().isoformat(timespec="seconds"),
+            "classes": sorted(self.classes),
+            "min_ratio": self.min_ratio,
+            "min_frames": self.min_frames,
+            "items": [
+                {k: v for k, v in d.items() if k != "sample_frames"}
+                for d in self.confirmed()
+                if d.get("verify") != "reject"      # 语义校验已否掉的不写进先验
+            ],
+            "extra": extra or {},
+        }
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return path
+
+    @classmethod
+    def load_prior(cls, path: str | Path) -> "StaticObjectMap":
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        fmt = data.get("format")
+        if fmt != cls.PRIOR_FORMAT:
+            raise ValueError(f"场景先验文件格式不兼容：{path}（format={fmt}）")
+        smap = cls(classes=tuple(data.get("classes") or STATIC_CLASSES),
+                   min_ratio=float(data.get("min_ratio", STATIC_MAP_MIN_RATIO)),
+                   min_frames=int(data.get("min_frames", STATIC_MAP_MIN_FRAMES)))
+        for item in data.get("items", []):
+            c = _Cluster(cls=item["cls"],
+                         boxes=[[float(v) for v in item["box"]]],
+                         forced=True)
+            c.meta = {k: item.get(k) for k in
+                      ("ratio", "seen", "visible", "occluded", "first_frame",
+                       "last_seen", "best_conf", "verify") if k in item}
+            smap.clusters.append(c)
+        smap.prior_meta = {k: data.get(k) for k in ("camera", "created", "frame_size", "extra")}
+        return smap

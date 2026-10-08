@@ -158,6 +158,7 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
     motions: dict[int, TrackMotion] = {}
     track_guard = _TrackGuard(enabled=guard)
     too_small = 0
+    coast_offscene = 0
     state_tracker = StateTracker(window=STILL_WINDOW, threshold_px=STILL_THRESHOLD_PX,
                                  bias_px=STILL_BIAS_PX)
     index = 0
@@ -270,6 +271,12 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
                 w, h = motion.size
                 box = [float(center[0] - w / 2.0), float(center[1] - h / 2.0),
                        float(center[0] + w / 2.0), float(center[1] + h / 2.0)]
+                # 幽灵续推防护：实测 64% 的续推目标此后再没被检出过，
+                # 其中相当一部分是"目标已经驶出画面"，继续画只会留下一个
+                # 跟着走但没人/没车的空框。中心点一旦离开画面就停止续推。
+                if _left_scene(box, info["width"], info["height"]):
+                    coast_offscene += 1
+                    continue
                 preds = {hh: motion.predict_box(gap + hh) for hh in HORIZONS}
                 is_maneuver, turn, deviation = motion.maneuver(horizon)
                 if gate_maneuver and is_maneuver:
@@ -307,6 +314,7 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
         "guard_enabled": bool(guard),
         "coast_frames": int(coast_frames),
         "too_small_skipped": too_small,
+        "coast_offscene_skipped": coast_offscene,
     }
     return records, motions, times, stats
 
@@ -421,6 +429,33 @@ def _grab_frames(video: str | Path, indices) -> dict:
         idx += 1
     cap.release()
     return out
+
+
+def _left_scene(box, width: int, height: int) -> bool:
+    """目标是否已经离开画面（用于终止遮挡续推）。
+
+    判据取"中心点出画"而不是"框完全出画"：部分出画的目标（车头刚压线）
+    仍然是真实存在的，继续续推合理；中心点都出画了，就没有继续画的必要。
+    """
+    cx = (box[0] + box[2]) / 2.0
+    cy = (box[1] + box[3]) / 2.0
+    return not (0.0 <= cx < width and 0.0 <= cy < height)
+
+
+def _resolve_prior_path(scene_prior, camera: str | None, video) -> Path | None:
+    """解析「场景先验」文件路径。
+
+    off   → None（每次现场重算，最慢）
+    auto  → outputs/scene_prior/<机位名>.json，机位名默认取视频文件名
+    其他   → 当作显式路径
+    """
+    if not scene_prior or str(scene_prior).lower() == "off":
+        return None
+    if str(scene_prior).lower() == "auto":
+        key = camera or Path(video).stem
+        return (Path(__file__).resolve().parents[1] / "outputs" / "scene_prior"
+                / f"{key}.json")
+    return Path(scene_prior)
 
 
 def _verify_static(clusters: list[dict], video: str | Path, frame_w: int, frame_h: int,
@@ -599,6 +634,8 @@ def run_clip(
     static_stride: int = STATIC_STRIDE,
     static_classes: tuple[str, ...] | None = None,
     static_verify: bool = True,
+    scene_prior: str | None = "auto",
+    camera: str | None = None,
     merge_names: bool = True,
     min_side: float = MIN_TARGET_SIDE_PX,
     min_area: float = MIN_TARGET_AREA_PX,
@@ -643,10 +680,29 @@ def run_clip(
     static_stats: dict = {"enabled": False}
     if static_map:
         sweep_classes = tuple(static_classes) if static_classes else STATIC_CLASSES
+        # 场景先验缓存：摄像机长期不动，同一机位"哪些位置是固定结构"只需算一次。
+        # 现场重算要跑「开放词汇扫描 + CLIP 语义校验」，实测把端到端从约
+        # 0.09 s/帧 抬到 0.53 s/帧；命中缓存后这两步全跳过。
+        prior_path = _resolve_prior_path(scene_prior, camera, video)
+        smap = None
+        if prior_path is not None and prior_path.exists():
+            try:
+                smap = StaticObjectMap.load_prior(prior_path)
+                print(f"[场景先验] 命中缓存 {prior_path}（{len(smap.clusters)} 个位置），"
+                      f"跳过扫描与语义校验")
+            except Exception as exc:
+                print(f"[场景先验] 缓存不可用（{type(exc).__name__}: {exc}），改为现场重算")
+                smap = None
+
         default_world = (Path(__file__).resolve().parents[1]
                          / "trafficlab-3d" / "repo" / "yolov8s-worldv2.pt")
         sweep_weights = Path(static_weights) if static_weights else default_world
-        if sweep_weights.exists():
+        if smap is not None:
+            confirmed = smap.confirmed()
+            verify_stats: dict = {"enabled": False, "source": "cache",
+                                  "prior": str(prior_path)}
+            source = "cache"
+        elif sweep_weights.exists():
             try:
                 scan = scan_static_channel(video, info, sweep_weights, max_frames, device,
                                            static_conf, static_imgsz, static_stride,
@@ -659,7 +715,6 @@ def run_clip(
                         break
                     dynamics = [o for o in records[i] if o["cls"] not in STATIC_CLASSES]
                     smap.observe(i, scan[i], dynamics, span=static_stride)
-                injected = 0
                 confirmed = smap.confirmed()
                 # 语义校验：跨帧投票只证明"位置稳定"，证明不了"这就是那类东西"。
                 # 花坛边缘、路缘石、广告牌同样常年不动，一样能通过 80% 检验。
@@ -673,7 +728,11 @@ def run_clip(
                         kept, unsure, dropped = [], [], []
                         for c in confirmed:
                             d, why, top = decisions.get(c["idx"], ("keep", "", ""))
-                            c["verify"] = {"decision": d, "reason": why, "top": top}
+                            c["verify"] = d
+                            c["verify_reason"] = why
+                            c["verify_top"] = top
+                            # 写回簇对象，落盘场景先验时才会带上校验结论
+                            smap.clusters[c["idx"]].verify = d
                             if d == "keep":
                                 kept.append(c)
                             elif d == "review":
@@ -685,49 +744,68 @@ def run_clip(
                             "keep": len(kept), "review": len(unsure), "reject": len(dropped),
                             "rejected_items": [
                                 {"cls": c["cls"], "ratio": c["ratio"],
-                                 "reason": c["verify"]["reason"], "top": c["verify"]["top"]}
+                                 "reason": c["verify_reason"], "top": c["verify_top"]}
                                 for c in dropped],
                         }
                         confirmed = kept + unsure
                     except Exception as exc:
                         verify_stats = {"enabled": True,
                                         "error": f"{type(exc).__name__}: {exc}"}
-                allowed = {c["idx"] for c in confirmed}
-                for i, frame in enumerate(records):
-                    dynamics = [o for o in frame if o["cls"] not in STATIC_CLASSES]
-                    for item in smap.missing(i, dynamics, present=frame):
-                        if item["idx"] not in allowed:
-                            continue
-                        frame.append(_memory_object(item, 20_000_000 + item["idx"], times[i]))
-                        injected += 1
-                summary = smap.summary()
-                static_stats = {
-                    "enabled": True,
-                    "weights": sweep_weights.name,
-                    "conf": static_conf,
-                    "imgsz": static_imgsz,
-                    "stride": static_stride,
-                    "classes": list(sweep_classes),
-                    "clusters": summary["clusters"],
-                    "confirmed": summary["confirmed"],
-                    "rejected": summary["rejected"],
-                    "dropped_small": summary.get("dropped_small", 0),
-                    "by_class": summary["by_class"],
-                    "injected_boxes": injected,
-                    "verify": verify_stats,
-                    "confirmed_after_verify": len(confirmed),
-                    "items": [
-                        {"cls": d["cls"], "ratio": d["ratio"], "seen": d["seen"],
-                         "visible": d["visible"], "occluded": d["occluded"],
-                         "box": [round(v, 1) for v in d["box"]],
-                         "verify": (d.get("verify") or {}).get("decision", "keep")}
-                        for d in confirmed
-                    ],
-                }
+                source = "scan"
             except Exception as exc:  # 静态通道失败不应阻断主流程
                 static_stats = {"enabled": True, "error": f"{type(exc).__name__}: {exc}"}
         else:
             static_stats = {"enabled": False, "reason": f"找不到开放词汇权重 {sweep_weights}"}
+
+        if smap is not None:
+            injected = 0
+            allowed = {c["idx"] for c in confirmed}
+            for i, frame in enumerate(records):
+                dynamics = [o for o in frame if o["cls"] not in STATIC_CLASSES]
+                for item in smap.missing(i, dynamics, present=frame):
+                    if item["idx"] not in allowed:
+                        continue
+                    frame.append(_memory_object(item, 20_000_000 + item["idx"], times[i]))
+                    injected += 1
+
+            # 现场重算的结果落盘，供同一机位的其他视频复用
+            saved = None
+            if source == "scan" and prior_path is not None and static_verify:
+                try:
+                    smap.save_prior(prior_path, camera=camera or Path(video).stem,
+                                    frame_size=(info["width"], info["height"]),
+                                    extra={"source_video": Path(video).name})
+                    saved = str(prior_path)
+                except Exception as exc:
+                    print(f"[场景先验] 保存失败：{type(exc).__name__}: {exc}")
+
+            summary = smap.summary()
+            static_stats = {
+                "enabled": True,
+                "source": source,
+                "prior_path": str(prior_path) if prior_path else None,
+                "prior_saved": saved,
+                "weights": sweep_weights.name,
+                "conf": static_conf,
+                "imgsz": static_imgsz,
+                "stride": static_stride,
+                "classes": list(sweep_classes),
+                "clusters": summary["clusters"],
+                "confirmed": summary["confirmed"],
+                "rejected": summary["rejected"],
+                "dropped_small": summary.get("dropped_small", 0),
+                "by_class": summary["by_class"],
+                "injected_boxes": injected,
+                "verify": verify_stats,
+                "confirmed_after_verify": len(confirmed),
+                "items": [
+                    {"cls": d["cls"], "ratio": d["ratio"], "seen": d["seen"],
+                     "visible": d["visible"], "occluded": d["occluded"],
+                     "box": [round(v, 1) for v in d["box"]],
+                     "verify": d.get("verify", "keep")}
+                    for d in confirmed
+                ],
+            }
 
     y_horizon = _estimate_horizon(motions, info["height"])
     scale_used = 0
@@ -772,6 +850,7 @@ def run_clip(
             "y_horizon": y_horizon,
             "scale_predictions": scale_used,
             "static_map": static_stats,
+            "track_stats": track_stats,
         }
 
     # 第二遍：渲染输出视频
