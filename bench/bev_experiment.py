@@ -5,8 +5,9 @@
 这正是我们反复遇到的"中位误差 vs P90 尾部"两难。
 把画面映射到地面平面后，"匀速"就是物理意义上的匀速，与远近无关。
 
-文献：Traffic-Net (arXiv:2109.09205)、Camera-to-Satellite Homography
-Rectification (arXiv:2601.16124)，见 docs/15。
+文献：Traffic-Net (arXiv:2109.09165)、Virtual Inverse Perspective Mapping
+(arXiv:2303.05192)、GenMapping (arXiv:2409.08688)，见 docs/15 与 docs/20。
+（原注释里的两个编号指向无关论文，2026-10-08 核对更正。）
 
 标定不靠人工：用经典的"目标框高度 ∝ 1/距离"关系，
 对所有检测框做 高度 ≈ a·y + b 的线性拟合，地平线 y_h = -b/a。
