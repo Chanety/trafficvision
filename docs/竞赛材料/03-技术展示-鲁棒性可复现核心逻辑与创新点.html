@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>交通视频预判系统 · 技术展示：鲁棒性 / 可复现性 / 核心逻辑 / 创新点</title>
+<style>
+:root{
+  --bg:#f5f6f8; --fg:#151a21; --card:#ffffff; --muted:#6a7380; --line:#e2e6eb;
+  --accent:#2563eb; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+  --s1:#2563eb; --s2:#0e9488; --s3:#7c3aed; --s4:#ea580c; --s5:#16a34a; --s6:#db2777;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.05);
+}
+:root[data-theme="dark"]{
+  --bg:#0e1116; --fg:#e8ebf0; --card:#161a21; --muted:#98a1ae; --line:#252b35;
+  --accent:#6ea8fe; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --s1:#6ea8fe; --s2:#2dd4bf; --s3:#a78bfa; --s4:#fb923c; --s5:#4ade80; --s6:#f472b6;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1100px;margin:0 auto;padding:0 20px 80px}
+header.hero{padding:54px 0 26px;border-bottom:1px solid var(--line);margin-bottom:26px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 7%,transparent),transparent)}
+.kicker{font-size:13px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+h1{font-size:clamp(23px,3.6vw,34px);line-height:1.28;margin:0 0 12px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);max-width:860px;margin:0 0 18px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted)}
+.chip b{color:var(--fg);font-weight:600}
+.chip.ok{border-color:color-mix(in srgb,var(--ok) 45%,var(--line));color:var(--ok)}
+.chip.warn{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));color:var(--warn)}
+.chip.bad{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));color:var(--bad)}
+nav.toc{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line);margin:0 -20px 26px;padding:10px 20px}
+nav.toc ol{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+nav.toc a{display:block;font-size:13px;padding:4px 10px;border-radius:8px;color:var(--muted);border:1px solid transparent;white-space:nowrap}
+nav.toc a:hover{background:var(--card);border-color:var(--line);color:var(--fg);text-decoration:none}
+nav.toc a.active{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);
+  border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.themebtn{position:absolute;right:20px;top:8px;font:inherit;font-size:12.5px;cursor:pointer;
+  background:var(--card);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+section{margin:42px 0;scroll-margin-top:64px}
+h2{font-size:21px;margin:0 0 6px;font-weight:600;letter-spacing:-.01em}
+.h2sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+h3{font-size:16px;margin:26px 0 10px;font-weight:600}
+p{margin:0 0 14px}ul,ol{margin:0 0 14px;padding-left:22px}li{margin:5px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;
+  background:color-mix(in srgb,var(--fg) 7%,transparent);padding:1px 5px;border-radius:5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+.stat .lbl{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.stat .val{font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+.stat .val small{font-size:13px;color:var(--muted);font-weight:400;margin-left:3px}
+.stat .note{font-size:12px;color:var(--muted);margin-top:5px}
+.up{color:var(--ok)}.down{color:var(--bad)}.flat{color:var(--warn)}
+.tw{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:12.5px;white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:hover{background:color-mix(in srgb,var(--accent) 5%,transparent)}
+.best{font-weight:600;color:var(--ok)}.worst{color:var(--bad)}
+caption{caption-side:bottom;text-align:left;color:var(--muted);font-size:12px;padding-top:8px}
+.chart{width:100%;margin:6px 0 4px}
+.chart svg{display:block;width:100%;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 2px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+.cvtip{font-size:12.5px;color:var(--muted);margin-top:6px}
+figure{margin:18px 0}
+figure img{width:100%;border-radius:12px;border:1px solid var(--line);display:block;background:#000}
+figcaption{font-size:12.5px;color:var(--muted);margin-top:8px}
+.note{border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card));
+  border-radius:0 10px 10px 0;padding:12px 16px;margin:16px 0;font-size:13.5px}
+.warnbox{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--card))}
+.badbox{border-left-color:var(--bad);background:color-mix(in srgb,var(--bad) 7%,var(--card))}
+.okbox{border-left-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--card))}
+/* 管线图 */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin:14px 0}
+.pstep{flex:1 1 130px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:130px}
+.pstep .t{font-size:13.5px;font-weight:600;margin-bottom:4px}
+.pstep .d{font-size:12px;color:var(--muted);line-height:1.5}
+.pstep.hi{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));
+  background:color-mix(in srgb,var(--accent) 7%,var(--card))}
+.arrow{align-self:center;color:var(--muted);font-size:16px}
+/* 创新点四段式 */
+.inv{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0;margin:16px 0;overflow:hidden;box-shadow:var(--shadow)}
+.inv .hd{padding:12px 18px;border-bottom:1px solid var(--line);font-weight:600;font-size:15.5px;
+  background:color-mix(in srgb,var(--accent) 7%,var(--card))}
+.inv .bd{padding:14px 18px}
+.inv .row{display:grid;grid-template-columns:82px 1fr;gap:10px;margin:7px 0;font-size:13.5px}
+.inv .k{color:var(--muted);font-size:12.5px;padding-top:2px}
+footer{border-top:1px solid var(--line);margin-top:52px;padding-top:20px;color:var(--muted);font-size:12.5px}
+.reveal{opacity:0;transform:translateY(10px);transition:opacity .5s ease,transform .5s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+@media print{nav.toc,.themebtn{display:none}.card,.inv,figure img{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">AIC · AI+开源 赛道 · 技术展示</div>
+  <h1>交通视频短时预判系统：鲁棒性 · 可复现性 · 核心逻辑 · 创新点</h1>
+  <p class="sub">
+    这份文档回答四个问题：<b>它稳不稳</b>（鲁棒性）、<b>别人能不能重跑出同样的数</b>（可复现性）、
+    <b>它到底怎么工作的</b>（核心逻辑）、<b>创新点凭什么站得住</b>（创新点构造）。
+    所有数字都标注了测量条件，未达标的部分单列一节。
+  </p>
+  <div class="chips">
+    <span class="chip ok">12 条技术路线 <b>实测证伪</b></span>
+    <span class="chip ok">场景先验缓存 <b>318 → 81 ms/帧</b></span>
+    <span class="chip">90 ms → 81 ms <b>输出逐位一致</b></span>
+    <span class="chip warn">行人 0.462 / 卡车 0.285 <b>未达标</b></span>
+    <span class="chip bad">预判真值 <b>自证式</b></span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目录">
+  <button class="themebtn" id="themebtn" type="button">深色</button>
+  <ol>
+    <li><a href="#s1">一页速览</a></li>
+    <li><a href="#s2">核心逻辑</a></li>
+    <li><a href="#s3">创新点构造</a></li>
+    <li><a href="#s4">鲁棒性</a></li>
+    <li><a href="#s5">可复现性</a></li>
+    <li><a href="#s6">关键可视化</a></li>
+    <li><a href="#s7">短板与应对</a></li>
+  </ol>
+</nav>
+
+<!-- ============ 1 ============ -->
+<section id="s1" class="reveal">
+  <h2>一、一页速览</h2>
+  <p class="h2sub">四个要求 → 我们的落点 → 可核验证据。评审查的每一格都能顺着指到脚本或数据。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>要求</th><th>我们的做法</th><th>可核验证据</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Robust</b><br>鲁棒性</td>
+          <td>抖动 / 可变帧率 / 多分辨率兼容；串轨防护；遮挡续推 <b>+ 出画终止</b>；
+              静态目标两级校验；任一路失败自动回退而不阻断主流程</td>
+          <td>抖动 4 档受控注入实测；VFR 计时对照；5 种跟踪器横评；
+              出画终止拦截 64% 的幽灵续推</td>
+        </tr>
+        <tr>
+          <td><b>可复现性</b></td>
+          <td>每个结论对应一个 <code>bench/</code> 脚本；<b>同集同参</b>对比；
+              环境与版本锁定；场景先验可落盘复用；每轮大改动前留完整备份</td>
+          <td>脚本清单（第五节）；先验复用后<b>输出逐位一致</b>（1367 = 1367）；
+              备份目录 <code>backups/</code></td>
+        </tr>
+        <tr>
+          <td><b>核心逻辑</b><br>展示</td>
+          <td>六环因果管线 + 静态目标两段式判据 + <b>场景先验预计算</b>（离线固化、在线查表）</td>
+          <td>管线图与判据阈值均可在 <code>trafficvision/config.py</code> 逐项对照</td>
+        </tr>
+        <tr>
+          <td><b>创新点</b><br>构造</td>
+          <td>每条创新按「上游做法 → 我们的做法 → 证据 → 边界」四段式写，
+              并逐条对照赛事红线"仅调用通用模型接口／直接部署现有项目不算创新"自查</td>
+          <td>4 条创新，第 3 节逐条展开</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid g4">
+    <div class="stat"><div class="lbl">目标域检测 mAP50</div><div class="val">0.637</div><div class="note">v7 · 新素材 65 帧 · imgsz 1280</div></div>
+    <div class="stat"><div class="lbl">1 秒预判中位误差</div><div class="val">31.2<small>px</small></div><div class="note">6 段 × 300 帧</div></div>
+    <div class="stat"><div class="lbl">端到端（命中场景先验）</div><div class="val up">81<small>ms/帧</small></div><div class="note">首次计算 318 ms/帧</div></div>
+    <div class="stat"><div class="lbl">已证伪的技术路线</div><div class="val">12</div><div class="note">全部有配对实测数据</div></div>
+  </div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section id="s2" class="reveal">
+  <h2>二、核心逻辑</h2>
+  <p class="h2sub">输入一段 2~30 秒监控视频 + 选一个预判梯度，输出带类型与预判位置的连续视频，并自动给出可复现的精度报告。</p>
+
+  <h3>2.1 主链路：六环，任一环失效都会污染结果</h3>
+  <div class="pipe">
+    <div class="pstep"><div class="t">1 检测</div><div class="d">开源检测模型输出目标框与类别</div></div>
+    <div class="arrow">→</div>
+    <div class="pstep"><div class="t">2 跟踪</div><div class="d">跨帧关联成轨迹；串轨防护切断错关联</div></div>
+    <div class="arrow">→</div>
+    <div class="pstep hi"><div class="t">3 运动估计</div><div class="d">因果卡尔曼滤波（只用当前帧及之前）</div></div>
+    <div class="arrow">→</div>
+    <div class="pstep hi"><div class="t">4 外推</div><div class="d">0.1/0.5/1/2 秒四档；机动目标降置信</div></div>
+    <div class="arrow">→</div>
+    <div class="pstep"><div class="t">5 呈现</div><div class="d">实线检测框 + 虚线预判框 + 尾迹箭头</div></div>
+    <div class="arrow">→</div>
+    <div class="pstep"><div class="t">6 自评</div><div class="d">用视频自己的未来帧做真值，输出误差报告</div></div>
+  </div>
+  <div class="note">
+    <b>三条设计原则</b>：① <b>因果</b>——只允许使用当前帧及之前的数据，否则就是"用未来推未来"；
+    ② <b>图像坐标系、不做标定</b>——客户视频拿不到相机参数，保证开箱即用；
+    ③ <b>分梯度置信</b>——不同时间梯度的可信度完全不同，不能给一个笼统的精度承诺。
+  </div>
+
+  <h3>2.2 静态通道：两段式判据 + 场景先验预计算</h3>
+  <p>这是本项目与"每帧重新检测"的主流做法差别最大的地方。监控摄像机<b>长期不动</b>，
+  场景里大量结构（路桩、标志牌、信号灯、路灯）位置固定，但单帧检测会反复漏掉它们
+  ——一辆公交开过、一个行人走过，柱子就从画面上消失了。</p>
+  <div class="pipe">
+    <div class="pstep"><div class="t">① 多提示词扫描</div><div class="d">同一概念配多个提示词（bollard / concrete bollard / barrier post），低阈值召回优先</div></div>
+    <div class="arrow">→</div>
+    <div class="pstep hi"><div class="t">② 跨帧一致性投票</div><div class="d">非遮挡帧里 ≥80% 被识别为同一类 → 写入隐标记</div></div>
+    <div class="arrow">→</div>
+    <div class="pstep hi"><div class="t">③ 语义校验</div><div class="d">连周围一起裁出，零样本图文匹配判断"到底是什么"，排除路缘石/广告牌</div></div>
+    <div class="arrow">→</div>
+    <div class="pstep"><div class="t">④ 落盘为场景先验</div><div class="d">每个机位一份文件；之后每段视频直接加载</div></div>
+    <div class="arrow">→</div>
+    <div class="pstep"><div class="t">⑤ 在线查表注入</div><div class="d">本帧检测器漏掉且未被遮挡 → 按先验补回，标注"·记忆"且不做预判</div></div>
+  </div>
+  <div class="note okbox">
+    <b>为什么必须是两段式。</b>投票只回答"这个位置<b>稳不稳定</b>"，回答不了"这到底是什么"。
+    花坛边缘、路缘石、广告牌同样常年不动，一样能通过 80% 一致性检验。
+    加上语义校验后，实测把用户标出的 6 个误检全部拦下——其中 2 个是模型<b>独立</b>给出的判词
+    （"贴着花坛的涂装路缘石""建筑上的大型文字广告牌"），与用户判断一字不差。
+  </div>
+  <div class="note warnbox">
+    <b>判决规则整体偏向保留。</b>误删一个真目标的代价（用户最初的抱怨）远高于留一个误检
+    （清单上扫一眼就能划掉）。所以只有证据确凿的才直接否掉，拿不准的一律降级为"待确认"
+    交给人看——<b>尺寸问题只降级、不删除</b>，因为实测"最小边 ≥16px"这类硬阈值会连带
+    杀掉远处 12×66px 的真路灯。
+  </div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section id="s3" class="reveal">
+  <h2>三、创新点构造</h2>
+  <p class="h2sub">每条按「上游做法 → 我们的做法 → 证据 → 边界」四段式写。边界那一栏不是客套，是答辩时最容易被追问的地方。</p>
+
+  <div class="inv">
+    <div class="hd">创新点 1 · 场景先验预计算：把"不变的部分"从在线推理里剥离</div>
+    <div class="bd">
+      <div class="row"><div class="k">上游做法</div><div>每帧独立检测，漏了靠跟踪补；提精度靠<b>加算力</b>（更大模型、更高分辨率、切图推理）</div></div>
+      <div class="row"><div class="k">我们的做法</div><div>离线用多帧投票 + 语义校验把场景中不变的结构固化成一份"场景先验"，在线只做一次查表注入。提精度靠<b>搬算力</b>——把贵的部分搬到离线</div></div>
+      <div class="row"><div class="k">证据</div><div>近景并排的路桩，主模型对左侧那根<b>连 0.01 置信度都没有</b>（它的训练标注里从来就没有这根柱子）；场景先验把它稳定补回。
+        <b>缓存后 318 → 81 ms/帧（3.9×），且注入结果逐位一致（1367 = 1367）</b></div></div>
+      <div class="row"><div class="k">边界</div><div>仅适用于<b>固定机位</b>；先验文件按机位一份，换机位需重算（重算成本已由缓存摊薄）。目标必须长期静止——停靠过久的车辆部件（如公交车窗立柱）会被误固化为静态结构，这类需靠语义校验或人工复核剔除</div></div>
+    </div>
+  </div>
+
+  <div class="inv">
+    <div class="hd">创新点 2 · 两级静态目标判据：位置一致性 + 语义一致性</div>
+    <div class="bd">
+      <div class="row"><div class="k">上游做法</div><div>单帧置信度阈值（我们的自动标注流程原本用单词提示词 + 0.15 阈值）</div></div>
+      <div class="row"><div class="k">我们的做法</div><div>第一级：跨帧一致性投票（非遮挡帧 ≥80%）回答"稳不稳定"；第二级：零样本图文匹配（正例/反例词表）回答"是什么"。两级正交，缺一不可</div></div>
+      <div class="row"><div class="k">证据</div><div>单词提示词 <code>"bollard"</code> 对混凝土路桩只有 <b>0.02~0.16</b> 分，换 <code>"concrete bollard"</code> 立刻 <b>0.55~0.91</b>；
+        两级过滤后位置清单从 282 条降到 136 保留 / 63 待确认 / 83 否掉，用户标注的 6 个反例全部拦下</div></div>
+      <div class="row"><div class="k">边界</div><div>零样本判别对<b>极小目标</b>不可靠（几十像素的框连人都认不出），这类只能降级为"待确认"；
+        "稳定存在"的误检（如常年不动的红色招牌）仍会通过投票，需要人工复核兜底</div></div>
+    </div>
+  </div>
+
+  <div class="inv">
+    <div class="hd">创新点 3 · 用系统性负结果划定能力边界，而不是只报指标</div>
+    <div class="bd">
+      <div class="row"><div class="k">上游做法</div><div>文献方向普遍指向更复杂的模型：圆弧/CTRV 外推、IMM 多模型滤波、自适应卡尔曼、地面平面（BEV）建模、更大检测模型、切图推理</div></div>
+      <div class="row"><div class="k">我们的做法</div><div>把上述路线<b>逐条实装并做配对实测</b>，用同一批目标、同一时刻比较，把"哪条路走不通、差多少"写成可复现的结论</div></div>
+      <div class="row"><div class="k">证据</div><div>12 条路线全部否掉：圆弧外推每档最优都是 gain=0；IMM 在 8573 配对样本上更准的只占 50%；
+        BEV 在它"本该赢"的深度变化档输得最多（61.9 → 94.1 px）；换更大模型没有赢（0.597 &lt; 0.637）。
+        结论与文献一致——短时域上匀速基线就是强基线</div></div>
+      <div class="row"><div class="k">边界</div><div>结论限定在<b>单目、≤2 秒、无地图与交互信息</b>的设定下；有真实相机标定或车道几何时不适用</div></div>
+    </div>
+  </div>
+
+  <div class="inv">
+    <div class="hd">创新点 4 · 分梯度置信承诺：把"预测不准"变成可管理的产品设计</div>
+    <div class="bd">
+      <div class="row"><div class="k">上游做法</div><div>给一个笼统的精度承诺，用户按统一标准验收</div></div>
+      <div class="row"><div class="k">我们的做法</div><div>按梯度给不同承诺（0.1/0.5 秒"位置可信"、1 秒"参考"、2 秒"仅示意方向"）；
+        机动（转弯/变道）目标用灰色虚线标"低置信"；被遮挡时框用虚线标"遮挡续推"</div></div>
+      <div class="row"><div class="k">证据</div><div>实测误差曲线本身就是分档的：4.3 / 16.4 / 31.2 / 75~78 px。承诺与数据一一对应，不是话术</div></div>
+      <div class="row"><div class="k">边界</div><div>这是<b>期望管理</b>而非精度提升；2 秒档的绝对误差没有已知技术路径能显著压低</div></div>
+    </div>
+  </div>
+
+  <div class="note badbox">
+    <b>对照赛事红线自查</b>：规则写明"仅调用通用模型接口、直接部署现有开源项目、复制模板、
+    简单拼接功能或更换界面，且未形成实质改进的，原则上不认定为充分创新"。
+    本项目的自研边界是清楚的——<b>预判链路、静态目标两段式机制、场景先验固化和复用、
+    评测体系与数据集建设</b>全部自主完成；第三方资源只提供通用能力（检测、跟踪、滤波、数值计算），
+    且逐项列在《开源及第三方资源使用清单》里。
+  </div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section id="s4" class="reveal">
+  <h2>四、鲁棒性</h2>
+  <p class="h2sub">不只报"能跑通"，而是给出它在什么条件下会退化、退化多少。</p>
+
+  <div class="grid g3">
+    <div class="stat"><div class="lbl">相机抖动容忍度</div><div class="val up">≤1<small>px/帧</small></div><div class="note">站立手持可用；3.5 px/帧 误差 ×2.4</div></div>
+    <div class="stat"><div class="lbl">可变帧率</div><div class="val">&lt;1<small>ms</small></div><div class="note">时间戳计时与按帧号计时差异</div></div>
+    <div class="stat"><div class="lbl">分辨率/朝向</div><div class="val">自适应</div><div class="note">实测覆盖 3 种分辨率 + 竖屏</div></div>
+  </div>
+
+  <h3>4.1 受控抖动注入实测</h3>
+  <div class="card">
+    <div class="legend" id="leg-shake"></div>
+    <div class="chart" id="chart-shake"></div>
+    <div class="cvtip">往最稳的素材里注入已知幅度的随机抖动，逐档测量。结论：站立手持（≤1 px/帧）精度基本不受影响，
+      但<b>静止目标抑制会失效</b>（判定为静止的目标占比从 72% 掉到 37%），画面会变乱；走路拍摄（3~9 px/帧）误差涨 2.4~5.3 倍。</div>
+  </div>
+
+  <h3>4.2 逐项鲁棒机制</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>失效场景</th><th>机制</th><th class="num">实测效果</th></tr></thead>
+      <tbody>
+        <tr><td>跟踪串到别的目标</td><td>串轨防护：位移 &gt; max(40px, 4×步长中位) 且与上一帧框 IoU &lt; 0.1 → 切断换新 ID</td><td class="num">轨迹跳变 −39%<br>涉事轨迹 9.1% → 5.2%</td></tr>
+        <tr><td>目标被遮挡后框消失</td><td>遮挡续推：用卡尔曼外推继续显示（虚线 + "遮挡续推"）</td><td class="num">每帧可预判目标 +54%<br>续推样本误差中位 29.3 px</td></tr>
+        <tr><td>续推画出"幽灵框"</td><td><b>新增</b>：外推框中心点离开画面即停止续推</td><td class="num">拦截 64% 的无效续推<br>（120 帧实测拦截 11 次）</td></tr>
+        <tr><td>静态目标时有时无</td><td>场景先验：跨帧投票 + 语义校验 + 查表注入</td><td class="num">本来完全检不到的路桩被稳定补回</td></tr>
+        <tr><td>误把路缘石/广告牌当目标</td><td>语义校验：连上下文裁图做零样本判别，证据不足降级"待确认"</td><td class="num">用户标注的 6 个反例全部拦下</td></tr>
+        <tr><td>维度判定在正俯视机位失效</td><td>自动回退：条件不满足时退回匀速模型，不因新机制而变差</td><td class="num">紧凑俯视机位实测自动拒绝启用</td></tr>
+        <tr><td>静态通道/语义模型不可用</td><td>异常捕获后<b>不阻断主流程</b>，退化为纯检测跟踪</td><td class="num">设计上的降级路径</td></tr>
+        <tr><td>同一目标被画出两个框</td><td>收紧 NMS 阈值</td><td class="num">同类高重叠对 5478 → 949（−83%）</td></tr>
+      </tbody>
+    </table>
+    <p class="cvtip">⚠️ NMS 修复后，"目标数/帧"类统计会下降约 10%（此前被重复框虚高），引用旧数字需重新取数。</p>
+  </div>
+
+  <h3>4.3 跟踪器横评：换跟踪器并不能提升精度</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>配置</th><th class="num">每帧可预判</th><th class="num">连续占比</th><th class="num">跳变 / 千帧</th><th>结论</th></tr></thead>
+      <tbody>
+        <tr><td>ByteTrack 默认（采用）</td><td class="num">10.26</td><td class="num">69.1%</td><td class="num">72.2</td><td>基线</td></tr>
+        <tr><td>ByteTrack conf 0.10</td><td class="num">11.02</td><td class="num">70.5%</td><td class="num">64.4</td><td>同一批目标中位误差 +0.3 px，无实质增益</td></tr>
+        <tr><td>ByteTrack 长缓冲</td><td class="num">12.11</td><td class="num">65.7%</td><td class="num worst">149.4</td><td>覆盖率上去但跳变翻倍，净收益为负</td></tr>
+        <tr><td>BoT-SORT + ReID</td><td class="num">10.50</td><td class="num">61.4%</td><td class="num worst">147.8</td><td>同上</td></tr>
+        <tr><td>OCSORT</td><td class="num">10.66</td><td class="num">63.4%</td><td class="num">73.3</td><td>同一批目标只差 1~3 px</td></tr>
+      </tbody>
+    </table>
+    <p class="cvtip">配对口径（消除"跟踪更多难目标"带来的偏差）下，各配置中位误差只差 1~3 px。所以默认保留 ByteTrack，把精力放在串轨防护与遮挡处理上。</p>
+  </div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section id="s5" class="reveal">
+  <h2>五、可复现性</h2>
+  <p class="h2sub">"可核验的效果数据"是评分里权重最高的一项（25 分）。这一节说明每个数字是怎么来的、别人怎么重跑。</p>
+
+  <h3>5.1 三条硬规矩</h3>
+  <ol>
+    <li><b>同集同参才能比。</b>项目早期踩过坑：v1 在旧验证集上显示 0.612，换到统一验证集后只有 0.210。
+      此后所有版本对比都在同一份验证集上用同一脚本重跑，表格里标注验证集与分辨率。</li>
+    <li><b>按视频划分，防止泄漏。</b>曾因从全部视频挖补充样本造成验证集泄漏、指标虚高；
+      现在数据集构建脚本内置"按视频排除验证集"逻辑。</li>
+    <li><b>区分实测事实与推测。</b>负结果同样写入记录，且标注数据来源与测量条件。</li>
+  </ol>
+
+  <h3>5.2 每个结论都有对应脚本</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>结论</th><th>脚本</th></tr></thead>
+      <tbody>
+        <tr><td>预判出视频 / 精度自评</td><td><code>trafficvision.cli</code>（<code>python -m trafficvision.cli --video … --horizon 1</code>）</td></tr>
+        <tr><td>多版本检测公平对比</td><td><code>bench/eval_compare_v5.py</code>、<code>bench/eval_compare_models.py</code></td></tr>
+        <tr><td>分辨率 / 模型规格扫描</td><td><code>bench/imgsz_sweep.py</code></td></tr>
+        <tr><td>误差归因（串轨 vs 遮挡）</td><td><code>bench/track_diagnostics.py</code>、<code>error_breakdown.py</code></td></tr>
+        <tr><td>跟踪器横评（含配对口径）</td><td><code>bench/tracker_bench.py</code>、<code>tracker_matched_bench.py</code></td></tr>
+        <tr><td>机动强度分档与门控扫描</td><td><code>bench/maneuver_analysis.py</code>、<code>maneuver_gate_sweep.py</code></td></tr>
+        <tr><td>被证伪的路线（IMM / BEV / 切图 / 自适应卡尔曼）</td><td><code>bench/imm_experiment.py</code>、<code>bev_experiment.py</code>、<code>tiled_inference.py</code></td></tr>
+        <tr><td>路桩漏检诊断（多提示词 × 低阈值）</td><td><code>bench/bollard_probe.py</code></td></tr>
+        <tr><td>静态位置复核清单</td><td><code>bench/verify_static_positions.py</code>、<code>make_static_review.py</code></td></tr>
+        <tr><td>真值质量自动判别（误差方向比）</td><td><code>bench/gt_quality_audit.py</code>、<code>gt_signature.py</code></td></tr>
+        <tr><td>抖动敏感性</td><td><code>bench/shake_sensitivity.py</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.3 可复现性的一次直接验证：场景先验缓存</h3>
+  <div class="card">
+    <div class="legend" id="leg-time"></div>
+    <div class="chart" id="chart-time"></div>
+    <div class="cvtip">同一段视频（120 帧）：首次现场计算场景先验 318 ms/帧；把它落盘后第二次运行命中缓存，
+      <b>81 ms/帧（3.9×）</b>，且两次的注入框数量<b>逐位一致</b>（1367 = 1367）。
+      这既是性能优化，也证明"先验固化"这一步是无损的。</div>
+  </div>
+
+  <h3>5.4 环境与版本锁定</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>项</th><th>版本 / 说明</th></tr></thead>
+      <tbody>
+        <tr><td>硬件</td><td>单卡 8GB 笔记本 GPU（RTX 5060 Laptop）——学生团队可负担，不需要服务器</td></tr>
+        <tr><td>框架</td><td>PyTorch 2.14.1+cu130；ultralytics 8.4.171；opencv-python 5.0.0.93</td></tr>
+        <tr><td>权重与依赖</td><td>全部版本与许可证逐项列在《开源及第三方资源使用清单》（从安装元数据读取，非凭记忆填写）</td></tr>
+        <tr><td>快照</td><td>每轮大改动前留完整备份（代码 + 配置 + 文档 + 当时权重），可回滚到任一阶段</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note okbox">
+    <b>自我证伪记录（可复现性的最强证据）</b>：项目里保留了五处"我们自己推翻自己"的记录——
+    ① 跨验证集指标不可比（0.612 → 0.210）；
+    ② "换跟踪器提升覆盖率"是分母效应误判，实际每帧可预判目标下降 44.6%；
+    ③ AP 类别错位一格（验证集里 sign 真值为 0 导致按类名顺序对应错位）；
+    ④ 抖动指标被静止目标污染，改用配对口径后结论反转；
+    ⑤ <b>参考文献编号核对</b>——初稿里多处 arXiv 编号指向无关论文（标题对、编号错），已逐条核实更正，
+    两条查无实据的 2026 年文献直接删除。
+  </div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section id="s6" class="reveal">
+  <h2>六、关键可视化</h2>
+  <p class="h2sub">下面几张图是答辩时最值得放上台面的：一张讲清管线、几张讲清效果与边界。</p>
+
+  <h3>6.1 实际效果：路口场景的预判输出</h3>
+  <figure>
+    <img src="../../outputs/static_demo/frames/112222_memory.jpg"
+         alt="路口场景预判输出：实线为检测框、虚线为预判框、密虚线为场景先验补回的记忆目标">
+    <figcaption>真实路段输出。实线框 = 本帧检测 + 类别标签；虚线框 = 预判位置；
+      <b>密虚线 + "·记忆" = 检测器本帧漏掉、由场景先验补回的固定结构</b>
+      （画面左侧两根路桩，主模型一帧都检不出来）。灰色细虚线 = 机动目标低置信预判。</figcaption>
+  </figure>
+
+  <h3>6.2 静态目标两级过滤漏斗</h3>
+  <div class="card">
+    <div class="chart" id="chart-funnel"></div>
+    <div class="cvtip">实测 VID_112254 前 60 帧：59 个候选位置 → 跨帧投票确认 31 个 →
+      语义校验后保留 24 个（17 直接保留 + 7 待确认，否掉 7 个）。否掉的主要是"路缘石""广告牌""红色雕塑""框过大"。</div>
+  </div>
+
+  <h3>6.3 预判误差随梯度的分档</h3>
+  <div class="card">
+    <div class="legend" id="leg-horizon"></div>
+    <div class="chart" id="chart-horizon"></div>
+    <div class="cvtip">误差曲线本身就是分档的，这是"分梯度置信承诺"的数据依据（创新点 4）。</div>
+  </div>
+
+  <h3>6.4 检测模型迭代：链式微调胜过换更大的模型</h3>
+  <div class="card">
+    <div class="legend" id="leg-detect"></div>
+    <div class="chart" id="chart-detect"></div>
+    <div class="cvtip">9 个模型版本、三份验证集。要点：目标域上链式微调的 yolo11n（0.637）优于更大的 yolo11s（0.597）；
+      同配方从零训练的 yolo11n 只有 0.615——<b>训练历史的组织方式比模型容量更重要</b>。</div>
+  </div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section id="s7" class="reveal">
+  <h2>七、目前的短板与应对</h2>
+  <p class="h2sub">这一节不是自谦，是把答辩时会被追问的点先摆出来，并说明已经采取或计划采取的措施。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>短板</th><th>具体情况</th><th>应对</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="worst"><b>预判误差是自证式的</b></td>
+          <td>真值取自<b>同一个跟踪器的未来检测</b>：跟踪漂移时真值跟着漂移，指标"自洽但不一定真实"。从未用独立来源验证过</td>
+          <td>计划人工标注若干段连续帧做独立真值对照；材料中已如实标注该限制</td>
+        </tr>
+        <tr>
+          <td class="worst"><b>只评了中心点，没评框</b></td>
+          <td>产品画的是框，但所有指标都是中心点距离；预测框的尺度误差从未测量</td>
+          <td>计划补充 IoU / 尺度误差指标</td>
+        </tr>
+        <tr>
+          <td><b>行人 0.462 / 卡车 0.285</b></td>
+          <td>两类都不达标。行人偏低还叠加了真值问题（自动标注把骑手标成了 person）与"过小目标过滤"的双重影响</td>
+          <td>真值清洗 + 补标注/补拍；<b>并且需要明确效果指标按"过滤前"还是"过滤后"验收</b>（两条要求目前不能同时成立）</td>
+        </tr>
+        <tr>
+          <td><b>类别口径未定</b></td>
+          <td>最新模型 7 类，而数据集已按 10 类重标（新增路灯/信号灯、骑车人单列）。静态先验还会注入模型根本预测不了的类别</td>
+          <td>需在"用新标注重训一版"与"回退 7 类口径"之间拍板</td>
+        </tr>
+        <tr>
+          <td><b>样本量小、无置信区间</b></td>
+          <td>融合 +3%、非机动车 +11% 这类结论基于 65 帧 / 116 个实例，未做显著性检验，结论强度被高估</td>
+          <td>扩大验证集；报告中给结论标注样本量</td>
+        </tr>
+        <tr>
+          <td><b>没有外部背书</b></td>
+          <td>无论文、无专利、无企业合作、无示范应用——赛事规则已明确这些<b>不作为评分依据</b></td>
+          <td>把投入放在"可核验效果数据"与"开放成果"上，这是权重最高的两项</td>
+        </tr>
+        <tr>
+          <td><b>AGPL-3.0 许可链</b></td>
+          <td>检测与跟踪依赖是 AGPL-3.0，且微调权重属衍生作品；规则对许可证重大违规是<b>一票否决</b></td>
+          <td>作品整体以 AGPL-3.0 开放——既合规，又同时满足"必须形成开放成果"的要求</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note warnbox">
+    <b>一句话总结</b>：这个项目最扎实的部分是<b>可核验的实验密度</b>——12 条路线的证伪地图、
+    9 个模型的同集对比、静态目标的两级判据与先验复用；最薄弱的部分是<b>真值的独立性</b>与
+    <b>小样本结论的强度</b>。前者需要人工标注几段连续帧来补，后者靠扩大验证集。
+  </div>
+</section>
+
+<footer>
+  技术展示文档 · 2026-10-08 · 所有数字均标注来源与测量条件；
+  未达标项与已知缺陷单列第七节。图表由文档内嵌脚本绘制，无外部依赖，离线可看。
+</footer>
+
+</div>
+
+<script>
+"use strict";
+(function(){
+  var root=document.documentElement, saved=null;
+  try { saved=localStorage.getItem("tvp3-theme"); } catch(e){}
+  if(!saved) saved=(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+  root.setAttribute("data-theme",saved);
+  var btn=document.getElementById("themebtn");
+  function paint(){ btn.textContent = root.getAttribute("data-theme")==="dark" ? "浅色" : "深色"; }
+  paint();
+  btn.addEventListener("click",function(){
+    var next=root.getAttribute("data-theme")==="dark"?"light":"dark";
+    root.setAttribute("data-theme",next);
+    try{ localStorage.setItem("tvp3-theme",next); }catch(e){}
+    paint(); drawAll();
+  });
+})();
+
+var NS="http://www.w3.org/2000/svg";
+function cssv(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||"#666"; }
+function node(tag,attrs,text){ var e=document.createElementNS(NS,tag);
+  for(var k in attrs){ if(attrs[k]!==null&&attrs[k]!==undefined) e.setAttribute(k,attrs[k]); }
+  if(text!==undefined) e.textContent=text; return e; }
+function clear(el){ while(el.firstChild) el.removeChild(el.firstChild); }
+function fmt(v,d){ return (Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toFixed(d); }
+function niceTicks(max,n){ var raw=max/n,mag=Math.pow(10,Math.floor(Math.log10(raw))),norm=raw/mag;
+  var step=(norm<=1?1:norm<=2?2:norm<=5?5:10)*mag,out=[],v=0;
+  while(v<=max+step*0.001){ out.push(v); v+=step; } return out; }
+function pal(){ return {s1:cssv("--s1"),s2:cssv("--s2"),s3:cssv("--s3"),s4:cssv("--s4"),
+  s5:cssv("--s5"),s6:cssv("--s6"),fg:cssv("--fg"),muted:cssv("--muted"),line:cssv("--line"),
+  ok:cssv("--ok"),warn:cssv("--warn"),bad:cssv("--bad")}; }
+
+function groupedBars(host,cats,series,opts){
+  opts=opts||{};
+  var W=Math.max(320,host.clientWidth||680), H=opts.height||300;
+  var m={t:20,r:16,b:opts.rot?66:46,l:58};
+  var pw=W-m.l-m.r, ph=H-m.t-m.b, top=0;
+  series.forEach(function(s){ s.data.forEach(function(v){ if(v>top) top=v; }); });
+  if(opts.ref!=null&&opts.ref>top) top=opts.ref;
+  top=top*1.15||1;
+  var svg=node("svg",{viewBox:"0 0 "+W+" "+H,width:"100%",height:H,role:"img","aria-label":opts.aria||"柱状图"});
+  var ticks=niceTicks(top,4); top=ticks[ticks.length-1];
+  var Y=function(v){ return m.t+ph*(1-v/top); };
+  ticks.forEach(function(t){
+    svg.appendChild(node("line",{x1:m.l,x2:m.l+pw,y1:Y(t),y2:Y(t),stroke:cssv("--line")}));
+    svg.appendChild(node("text",{x:m.l-8,y:Y(t)+4,"text-anchor":"end",fill:cssv("--muted"),"font-size":11},
+      fmt(t, top<=1.2?2:(top<=8?1:0))));
+  });
+  var gw=pw/cats.length, bw=Math.min(46,gw*0.74/series.length);
+  cats.forEach(function(c,i){
+    var cx=m.l+gw*i+gw/2;
+    series.forEach(function(s,j){
+      var v=s.data[i];
+      if(v===null||v===undefined){ return; }   // 该类版本没有这份验证集的数据
+      var bx=cx-bw*series.length/2+bw*j;
+      var r=node("rect",{x:bx,y:Y(v),width:bw-2,height:Math.max(1,ph*v/top),rx:3,fill:s.color});
+      r.appendChild(node("title",{},s.name+" · "+c.replace(/\n/g," ")+"："+fmt(v,opts.vd===undefined?2:opts.vd)));
+      svg.appendChild(r);
+      svg.appendChild(node("text",{x:bx+(bw-2)/2,y:Y(v)-5,"text-anchor":"middle",fill:cssv("--fg"),"font-size":10},
+        fmt(v,opts.vd===undefined?2:opts.vd)));
+    });
+    var tx=cx, ty=m.t+ph+16;
+    var t=node("text",{x:tx,y:ty,"text-anchor":"middle",fill:cssv("--muted"),"font-size":11.5},c);
+    if(opts.rot){ t.setAttribute("transform","rotate(-22 "+tx+" "+ty+")"); t.setAttribute("text-anchor","end"); }
+    svg.appendChild(t);
+  });
+  if(opts.ref!=null){
+    svg.appendChild(node("line",{x1:m.l,x2:m.l+pw,y1:Y(opts.ref),y2:Y(opts.ref),
+      stroke:cssv("--warn"),"stroke-width":2,"stroke-dasharray":"7 5"}));
+    svg.appendChild(node("text",{x:m.l+pw-4,y:Y(opts.ref)-6,"text-anchor":"end",fill:cssv("--warn"),"font-size":11},opts.refLabel||""));
+  }
+  if(opts.yLabel) svg.appendChild(node("text",{x:12,y:m.t+ph/2,fill:cssv("--muted"),"font-size":11,
+    "text-anchor":"middle",transform:"rotate(-90 12 "+(m.t+ph/2)+")"},opts.yLabel));
+  clear(host); host.appendChild(svg);
+}
+
+function funnel(host, steps, opts){
+  opts=opts||{};
+  var W=Math.max(320,host.clientWidth||680), H=opts.height||250;
+  var m={t:26,r:20,b:44,l:20};
+  var pw=W-m.l-m.r, ph=H-m.t-m.b;
+  var max=Math.max.apply(null,steps.map(function(s){return s.v;}));
+  var svg=node("svg",{viewBox:"0 0 "+W+" "+H,width:"100%",height:H,role:"img","aria-label":"过滤漏斗"});
+  var bw=pw/steps.length;
+  steps.forEach(function(s,i){
+    var x=m.l+bw*i+8, w=bw-16;
+    var h=ph*(s.v/max);
+    var y=m.t+ph-h;
+    var r=node("rect",{x:x,y:y,width:w,height:h,rx:6,fill:s.color});
+    r.appendChild(node("title",{},s.name+"："+s.v));
+    svg.appendChild(r);
+    svg.appendChild(node("text",{x:x+w/2,y:y-8,"text-anchor":"middle",fill:cssv("--fg"),"font-size":13,"font-weight":600},String(s.v)));
+    var t=node("text",{x:x+w/2,y:m.t+ph+18,"text-anchor":"middle",fill:cssv("--muted"),"font-size":11.5},s.name);
+    if(opts.rot){ t.setAttribute("transform","rotate(-16 "+(x+w/2)+" "+(m.t+ph+18)+")"); t.setAttribute("text-anchor","end"); }
+    svg.appendChild(t);
+  });
+  clear(host); host.appendChild(svg);
+}
+
+function legend(host, items){
+  clear(host);
+  items.forEach(function(it){
+    var sp=document.createElement("span");
+    var sw=document.createElement("i"); sw.className="sw"; sw.style.background=it.color;
+    sp.appendChild(sw); sp.appendChild(document.createTextNode(it.name));
+    host.appendChild(sp);
+  });
+}
+
+/* ---------- 数据 ---------- */
+var SHAKE={ cats:["0.04（原始）","0.94","3.49","8.83"],
+  median:[32.0,27.0,76.6,170.7], mean:[59.6,43.1,83.5,185.9] };
+var HORIZON={ cats:["0.1 s","0.5 s","1 s","2 s"],
+  median:[4.3,16.4,31.2,76], mean:[7.2,26.8,55.0,132], p90:[16.3,57.9,122.5,307] };
+var DETECT={ cats:["v1","v3","v4","v5","v7","v8n","v8s"],
+  street8:[0.210,0.587,0.586,0.601,null,null,null],
+  new65:[null,null,null,null,0.637,0.615,0.597],
+  street7:[null,null,null,null,0.701,0.636,0.698] };
+var TIME={ cats:["首次（现场计算）","第二次（命中缓存）"], v:[318,81] };
+var FUNNEL=[ {name:"候选位置",v:59,color:"#94a3b8"},
+             {name:"投票确认",v:31,color:"#0e9488"},
+             {name:"语义校验后保留",v:24,color:"#2563eb"},
+             {name:"在线注入的帧数",v:1311,color:"#16a34a"} ];
+
+function drawAll(){
+  var p=pal();
+  try{
+    groupedBars(document.getElementById("chart-shake"),SHAKE.cats,
+      [{name:"1 秒中位误差",color:p.s1,data:SHAKE.median},
+       {name:"1 秒均值",color:p.s2,data:SHAKE.mean}],
+      {yLabel:"像素误差 (px)",vd:0,height:300});
+    legend(document.getElementById("leg-shake"),
+      [{name:"1 秒中位误差",color:p.s1},{name:"1 秒均值",color:p.s2}]);
+    groupedBars(document.getElementById("chart-horizon"),HORIZON.cats,
+      [{name:"中位",color:p.s1,data:HORIZON.median},
+       {name:"均值",color:p.s2,data:HORIZON.mean},
+       {name:"P90",color:p.s4,data:HORIZON.p90}],
+      {yLabel:"像素误差 (px)",vd:0,height:310});
+    legend(document.getElementById("leg-horizon"),
+      [{name:"中位",color:p.s1},{name:"均值",color:p.s2},{name:"P90",color:p.s4}]);
+    groupedBars(document.getElementById("chart-detect"),DETECT.cats,
+      [{name:"街面 116 帧（8 类均值）",color:p.s3,data:DETECT.street8},
+       {name:"新素材 65 帧（7 类）",color:p.s1,data:DETECT.new65},
+       {name:"旧街面 116 帧（7 类）",color:p.s2,data:DETECT.street7}],
+      {yLabel:"mAP50",vd:3,height:310});
+    legend(document.getElementById("leg-detect"),
+      [{name:"街面 116 帧（8 类均值 · 960）",color:p.s3},
+       {name:"新素材 65 帧（7 类 · 1280）",color:p.s1},
+       {name:"旧街面 116 帧（7 类 · 1280）",color:p.s2}]);
+    groupedBars(document.getElementById("chart-time"),TIME.cats,
+      [{name:"每帧耗时",color:p.s4,data:TIME.v}],
+      {yLabel:"毫秒 / 帧",vd:0,height:260});
+    legend(document.getElementById("leg-time"),[{name:"每帧耗时（越低越好）",color:p.s4}]);
+    funnel(document.getElementById("chart-funnel"),FUNNEL,{rot:true,height:260});
+  }catch(e){}
+}
+
+(function(){
+  var links=Array.prototype.slice.call(document.querySelectorAll("nav.toc a"));
+  var secs=links.map(function(a){ return document.querySelector(a.getAttribute("href")); });
+  function onScroll(){
+    var y=window.scrollY+120,best=0;
+    secs.forEach(function(s,i){ if(s&&s.offsetTop<=y) best=i; });
+    links.forEach(function(a,i){ a.classList.toggle("active",i===best); });
+  }
+  window.addEventListener("scroll",onScroll,{passive:true}); onScroll();
+  if("IntersectionObserver" in window){
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+    },{rootMargin:"0px 0px -8% 0px"});
+    document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
+  } else {
+    document.querySelectorAll(".reveal").forEach(function(el){ el.classList.add("in"); });
+  }
+})();
+
+var rt=null;
+window.addEventListener("resize",function(){ clearTimeout(rt); rt=setTimeout(function(){ try{drawAll();}catch(e){} },160); });
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",drawAll);
+else drawAll();
+</script>
+</body>
+</html>
