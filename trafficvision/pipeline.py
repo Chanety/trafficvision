@@ -652,7 +652,18 @@ def run_clip(
         max_frames = min(max_frames, int(max_frames_override))
     diagonal = math.hypot(info["width"], info["height"])
 
-    model = YOLO(weights)
+    weight_path = Path(weights)
+    if not weight_path.exists():
+        # 默认权重是微调模型，不随仓库分发；直接把 Ultralytics 的
+        # "文件不存在" 抛给用户很容易被误判成程序坏了。
+        raise SystemExit(
+            f"找不到权重文件：{weight_path}\n"
+            f"  默认权重是微调合并模型 v7（体积较大，不随仓库分发）。\n"
+            f"  获取方式与 SHA-256 见 models/README.md 与 models/manifest.json；\n"
+            f"  也可以用 --weights 指定其他权重，例如开放词汇模型\n"
+            f"  trafficlab-3d/repo/yolov8s-worldv2.pt（会走开放词汇模式）。"
+        )
+    model = YOLO(str(weight_path))
     if world is None:
         world = "world" in Path(weights).name.lower()
     if world:
@@ -826,6 +837,7 @@ def run_clip(
 
     if not render:
         if out_json:
+            Path(out_json).parent.mkdir(parents=True, exist_ok=True)
             Path(out_json).write_text(
                 json.dumps(
                     {
@@ -854,13 +866,23 @@ def run_clip(
         }
 
     # 第二遍：渲染输出视频
+    # 输出目录统一先建好：cv2.VideoWriter 在父目录不存在时会**静默失败**
+    # （不抛异常、不写文件），JSON/GIF 也会在最后一步才报错。
+    out_video_path = Path(out_video)
+    out_video_path.parent.mkdir(parents=True, exist_ok=True)
     cap = cv2.VideoCapture(str(video))
     writer = cv2.VideoWriter(
-        str(out_video),
+        str(out_video_path),
         cv2.VideoWriter_fourcc(*"mp4v"),
         info["fps"],
         (info["width"], info["height"]),
     )
+    if not writer.isOpened():
+        cap.release()
+        raise SystemExit(
+            f"无法创建输出视频：{out_video_path}\n"
+            f"  常见原因：路径不可写、磁盘已满、或 mp4v 编解码器不可用。"
+        )
     gif_frames = []
     idx = 0
     while idx < max_frames:
@@ -895,6 +917,7 @@ def run_clip(
     if gif and gif_frames:
         from PIL import Image
 
+        Path(gif).parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(gif_frames[0]).save(
             str(gif),
             save_all=True,
@@ -904,6 +927,7 @@ def run_clip(
         )
 
     if out_json:
+        Path(out_json).parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "video": str(video),
             "horizon_s": horizon,

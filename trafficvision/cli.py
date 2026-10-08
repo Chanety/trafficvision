@@ -20,6 +20,7 @@ from .config import (
     STATIC_STRIDE,
     MIN_TARGET_AREA_PX,
     MIN_TARGET_SIDE_PX,
+    NMS_IOU,
     WORLD_PROMPT_CLASSES,
 )
 from .pipeline import run_clip
@@ -71,8 +72,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--gate-maneuver", action="store_true",
                    help="对机动（转弯/变道）中的目标不给该梯度预判（默认只标低置信）")
     # ---------------------------------------------------------- 静态目标地图
+    # 注意：argparse 会对 help 字符串做 % 格式化，正文里出现裸 % 会直接抛
+    # ValueError（本文件曾因此让 `--help` 崩溃，2026-10-08 修复）。
+    # 这里改用中文表述，避免依赖 %% 转义。
     p.add_argument("--static-map", action=argparse.BooleanOptionalAction, default=True,
-                   help="开启静态目标回档机制：整段视频里 ≥80% 可见帧被识别的"
+                   help="开启静态目标回档机制：整段视频里非遮挡帧中不低于八成都被识别的"
                         "路桩/标志牌/路灯/信号灯，写入隐标记并在漏检帧补回（默认开）")
     p.add_argument("--static-weights", default=None,
                    help="静态通道用的开放词汇权重（默认自动找 trafficlab-3d/repo/yolov8s-worldv2.pt）")
@@ -100,6 +104,10 @@ def build_parser() -> argparse.ArgumentParser:
                         "依据见 bench/min_size_sweep.py）；给了这个参数则全局覆盖")
     p.add_argument("--min-area", type=float, default=MIN_TARGET_AREA_PX,
                    help=f"过小目标不识别：面积下限，px²（默认 {MIN_TARGET_AREA_PX:g}）")
+    p.add_argument("--iou", type=float, default=NMS_IOU,
+                   help=f"NMS 阈值（默认 {NMS_IOU:g}）。ultralytics 默认 0.7，"
+                        f"在 imgsz=1280 下压不住同一目标的重复框，实测收到 0.5 后"
+                        f"同类高重叠框减少八成")
     return p
 
 
@@ -143,6 +151,7 @@ def main() -> None:
         merge_names=args.merge_names,
         min_side=args.min_side,
         min_area=args.min_area,
+        nms_iou=args.iou,
     )
     print(json.dumps(result["metrics"], ensure_ascii=False, indent=2))
     if result.get("y_horizon") is not None:
