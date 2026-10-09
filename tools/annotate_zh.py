@@ -63,21 +63,57 @@ from PyQt5.QtWidgets import (  # noqa: E402
     QWidget,
 )
 
-# 类别（顺序必须与 classes.txt 一致，决定了训练时的类别编号）
-CLASS_NAMES = ["car", "truck", "bus", "motorcycle", "bicycle", "person",
-               "sign", "bollard", "tricycle"]
-CLASS_CN = ["汽车", "卡车", "公交", "摩托", "自行车", "行人", "标志牌", "路桩", "三轮车"]
-CLASS_COLORS = [
-    QColor(80, 220, 80),
-    QColor(255, 150, 0),
-    QColor(40, 130, 255),
-    QColor(220, 60, 220),
-    QColor(220, 220, 60),
-    QColor(60, 220, 255),
-    QColor(255, 255, 255),
-    QColor(150, 150, 255),
-    QColor(0, 215, 255),
+# 类别表：**从数据集的 classes.txt 读取**，不再硬编码。
+#
+# 为什么必须这样（2026-10-09 实测的故障）：工具原来写死 9 类，数据集升到 10 类
+# （新增 rider）之后，一打开就 `IndexError: list index out of range`——
+# 因为 refresh_status 里用 CLASS_CN[k] 去取第 10 个类别名。硬编码的类别表
+# 是这一类故障的根源，改成读文件后，换任何口径都不用改工具。
+_CLASS_CN_MAP = {
+    "car": "汽车", "truck": "卡车", "bus": "公交",
+    "motorcycle": "摩托", "bicycle": "自行车", "person": "行人",
+    "sign": "标志牌", "bollard": "路桩", "tricycle": "三轮车",
+    # 10 类合并口径新增的三类
+    "nonmotor": "非机动车", "roadlamp": "路灯", "trafficlight": "信号灯",
+    "rider": "非机动车驾驶员",
+}
+_FALLBACK_NAMES = ["car", "truck", "bus", "motorcycle", "bicycle", "person",
+                   "sign", "bollard", "tricycle"]
+
+
+def load_class_names(dataset: Path) -> list[str]:
+    """优先用数据集自己的 classes.txt；读不到才退回内置的 9 类。"""
+    classes_file = dataset / "classes.txt"
+    if classes_file.exists():
+        names = [ln.strip() for ln in
+                 classes_file.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        if names:
+            return names
+    labels_dir = dataset / "labels"
+    if labels_dir.exists():
+        names = [ln.strip() for ln in (labels_dir / "classes.txt").read_text(
+            encoding="utf-8").splitlines() if ln.strip()] if (labels_dir / "classes.txt").exists() else []
+        if names:
+            return names
+    return list(_FALLBACK_NAMES)
+
+
+CLASS_NAMES = load_class_names(DATASET)
+CLASS_CN = [_CLASS_CN_MAP.get(n, n) for n in CLASS_NAMES]
+_PALETTE = [
+    QColor(80, 220, 80),   # 汽车
+    QColor(255, 150, 0),   # 卡车
+    QColor(40, 130, 255),  # 公交
+    QColor(220, 60, 220),  # 非机动车
+    QColor(60, 220, 255),  # 行人
+    QColor(255, 255, 255), # 标志牌
+    QColor(150, 150, 255), # 路桩
+    QColor(0, 200, 200),   # 路灯
+    QColor(255, 90, 90),   # 信号灯
+    QColor(255, 200, 0),   # 非机动车驾驶员
+    QColor(180, 180, 180),
 ]
+CLASS_COLORS = [_PALETTE[i % len(_PALETTE)] for i in range(len(CLASS_NAMES))]
 
 
 class Canvas(QWidget):
@@ -349,14 +385,19 @@ class Canvas(QWidget):
                 self.window.refresh_status()
                 self.update()
             return
-        if Qt.Key_1 <= key <= Qt.Key_9:
-            idx = key - Qt.Key_1
+        # 1~9 → 第 1~9 类；0 → 第 10 类（10 类口径下需要这个键）
+        if (Qt.Key_1 <= key <= Qt.Key_9) or key == Qt.Key_0:
+            idx = 9 if key == Qt.Key_0 else (key - Qt.Key_1)
+            if idx >= len(CLASS_NAMES):
+                return
             if 0 <= self.selected < len(self.boxes):
                 self.push_history()
                 self.boxes[self.selected][0] = float(idx)
                 self.window.mark_dirty()
             else:
                 self.window.current_class = idx
+                for i, btn in enumerate(self.window.class_buttons):
+                    btn.setChecked(i == idx)
             self.window.refresh_status()
             self.update()
             return
