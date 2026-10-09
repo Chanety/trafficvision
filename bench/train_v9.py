@@ -15,11 +15,21 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "datasets" / "train_v9" / "data.yaml"
-STREET_VAL = ROOT / "datasets" / "train_v9" / "street_val.yaml"
-AERIAL_VAL = ROOT / "datasets" / "train_v9" / "aerial_val.yaml"
-BASE_WEIGHTS = ROOT / "outputs" / "train" / "v7" / "weights" / "best.pt"
-OUT_NAME = "v9"
+
+
+def _arg(name: str, default):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
+
+
+# 支持用 --data 指到别的数据集目录（例如清洗后的 train_v9b），--name 指定输出名
+_DATA_DIR = Path(_arg("--data", str(ROOT / "datasets" / "train_v9")))
+DATA = _DATA_DIR / "data.yaml"
+STREET_VAL = _DATA_DIR / "street_val.yaml"
+AERIAL_VAL = _DATA_DIR / "aerial_val.yaml"
+OUT_NAME = _arg("--name", "v9")
+# 起点权重：默认 v7（7 类链式微调）；也可用 --base 指到 v9 续训
+BASE_WEIGHTS = Path(_arg("--base", str(ROOT / "outputs" / "train" / "v7" / "weights" / "best.pt")))
+RESUME = "--resume" in sys.argv
 
 
 def report(label: str, metrics) -> None:
@@ -34,12 +44,14 @@ def report(label: str, metrics) -> None:
 def main() -> None:
     from ultralytics import YOLO
 
-    epochs = int(sys.argv[1]) if len(sys.argv) > 1 else 120
+    epochs = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 120
     if not BASE_WEIGHTS.exists():
         raise SystemExit(f"找不到 v7 权重：{BASE_WEIGHTS}")
-    print(f"数据配置: {DATA}\n起点权重: {BASE_WEIGHTS}\n轮数: {epochs}", flush=True)
+    print(f"数据配置: {DATA}\n起点权重: {BASE_WEIGHTS}\n输出名: {OUT_NAME}\n"
+          f"轮数: {epochs}\n续训: {RESUME}", flush=True)
 
-    model = YOLO(str(BASE_WEIGHTS))
+    last = ROOT / "outputs" / "train" / OUT_NAME / "weights" / "last.pt"
+    model = YOLO(str(last if (RESUME and last.exists()) else BASE_WEIGHTS))
     model.train(
         data=str(DATA),
         epochs=epochs,
@@ -52,6 +64,7 @@ def main() -> None:
         exist_ok=True,
         patience=25,
         plots=True,
+        resume=bool(RESUME and last.exists()),
     )
 
     best = ROOT / "outputs" / "train" / OUT_NAME / "weights" / "best.pt"

@@ -81,11 +81,17 @@ def add_sample(src_image: Path, src_label: Path, sub: str, remap: bool) -> str |
 
 
 def main() -> None:
+    global NEW, OUT
     visdrone_n, repeat = 250, 3
     if "--visdrone" in sys.argv:
         visdrone_n = int(sys.argv[sys.argv.index("--visdrone") + 1])
     if "--repeat" in sys.argv:
         repeat = int(sys.argv[sys.argv.index("--repeat") + 1])
+    # 允许换成清洗后的数据源 / 换输出目录（例如 label3 -> train_v9b）
+    if "--new-src" in sys.argv:
+        NEW = Path(sys.argv[sys.argv.index("--new-src") + 1])
+    if "--out" in sys.argv:
+        OUT = Path(sys.argv[sys.argv.index("--out") + 1])
 
     new_images = sorted((NEW / "images").glob("*.jpg"))
     train_new = [p for p in new_images if p.stem.split("_f")[0] not in VAL_VIDEOS]
