@@ -23,7 +23,10 @@ param(
     [string]$Script     = "bench\train_v9.py",
     [string]$ScriptArgs = "120 --data datasets\train_v9b --name v9b",
     [string]$RunName    = "v9b",
-    [int]$TargetEpochs  = 60,
+    # 默认设得比训练脚本的 epochs 更大：让训练跑到它自己的早停（patience）为止。
+    # 早前默认 60，结果看门狗在 61 轮就退出了，训练跑到 75 轮被外部中断时
+    # 已经没人看守——这是设计缺陷，已修正。
+    [int]$TargetEpochs  = 1000,
     [int]$MaxRestarts   = 30,
     [int]$PollSeconds   = 60,
     [int]$StallMinutes  = 8
