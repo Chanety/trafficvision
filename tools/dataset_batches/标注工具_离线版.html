@@ -60,11 +60,26 @@
 </div>
 <script>
 "use strict";
-const CLASSES = ["car","truck","bus","motorcycle","bicycle","person","sign","bollard","tricycle"];
-const CLASS_CN = ["汽车","卡车","公交","摩托","自行车","行人","标志牌","路桩","三轮车"];
-const COLORS = ["#4caf50","#0099ff","#ff8c1a","#ffd24d","#d9a3ff","#ff5d5d","#ffffff","#9aa2ff","#00d7ff"];
-const VEHICLE_IDS = [0,1,2,3,4,8];   // 两三轮车同样算载具：车上的人不单独标 person
-const PERSON_ID = 5;
+/* 类别表：优先从所选文件夹的 classes.txt 读取（见 setClasses），
+   读不到才退回下面这套内置的 9 类。
+   为什么必须这样：工具原来写死 9 类，而批次数据已升到 10 类（含 rider），
+   协作者会看不到第 10 类、也按不出对应的数字键。 */
+let CLASSES = ["car","truck","bus","motorcycle","bicycle","person","sign","bollard","tricycle"];
+const CLASS_CN_MAP = {
+  car:"汽车", truck:"卡车", bus:"公交", motorcycle:"摩托", bicycle:"自行车",
+  person:"行人", sign:"标志牌", bollard:"路桩", tricycle:"三轮车",
+  nonmotor:"非机动车", roadlamp:"路灯", trafficlight:"信号灯", rider:"非机动车驾驶员",
+};
+let CLASS_CN = CLASSES.map(c => CLASS_CN_MAP[c] || c);
+const COLOR_POOL = ["#4caf50","#0099ff","#ff8c1a","#ffd24d","#d9a3ff","#ff5d5d",
+                    "#ffffff","#9aa2ff","#00d7ff","#ff9f43","#7ed6df"];
+let COLORS = CLASSES.map((_, i) => COLOR_POOL[i % COLOR_POOL.length]);
+// 载具 / 行人的编号按类别名动态取，避免换口径后"清骑车人"失效
+function vehicleIds() {
+  return ["car","truck","bus","motorcycle","bicycle","tricycle","nonmotor"]
+    .map(n => CLASSES.indexOf(n)).filter(i => i >= 0);
+}
+function personId() { return CLASSES.indexOf("person"); }
 
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d");
@@ -89,15 +104,34 @@ function toast(msg, ms = 1800) {
 }
 
 /* ---------------- 类别按钮 ---------------- */
-CLASSES.forEach((c, i) => {
-  const d = document.createElement("div");
-  d.className = "chip";
-  d.dataset.i = i;
-  d.style.color = COLORS[i];
-  d.textContent = (i + 1) + " " + CLASS_CN[i];
-  d.onclick = () => setClass(i);
-  clsEl.appendChild(d);
-});
+function buildChips() {
+  clsEl.innerHTML = "";
+  CLASSES.forEach((c, i) => {
+    const d = document.createElement("div");
+    d.className = "chip";
+    d.dataset.i = i;
+    d.style.color = COLORS[i % COLORS.length];
+    d.textContent = (i + 1) + " " + CLASS_CN[i];
+    d.onclick = () => setClass(i);
+    clsEl.appendChild(d);
+  });
+}
+
+/* 用数据集自带的 classes.txt 覆盖类别表，并重建按钮 */
+function setClasses(names) {
+  if (!names || !names.length) return;
+  CLASSES = names.slice();
+  CLASS_CN = CLASSES.map(c => CLASS_CN_MAP[c] || c);
+  COLORS = CLASSES.map((_, i) => COLOR_POOL[i % COLOR_POOL.length]);
+  buildChips();
+  curCls = Math.min(curCls, CLASSES.length - 1);
+  refreshChips();
+  toast(`已按 classes.txt 载入 ${CLASSES.length} 个类别`, 2500);
+}
+function parseClassesText(text) {
+  return String(text || "").split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+}
+buildChips();
 function refreshChips() {
   [...clsEl.children].forEach((el, i) => el.classList.toggle("on", i === curCls));
   statEl.textContent = items.length
@@ -134,6 +168,11 @@ function pickFilesFallback() {
 async function loadFromDirectory(dir) {
   const imagesDir = await dir.getDirectoryHandle("images");
   const labelsDir = await dir.getDirectoryHandle("labels");
+  // 先读类别表：批次数据的口径可能与工具内置的不同（例如 10 类含 rider）
+  try {
+    const cf = await (await dir.getFileHandle("classes.txt")).getFile();
+    setClasses(parseClassesText(await cf.text()));
+  } catch (e) { /* 没有就沿用内置类别表 */ }
   let order = null;
   try {
     const f = await (await dir.getFileHandle("review_order.txt")).getFile();
@@ -166,6 +205,8 @@ async function loadFromDirectory(dir) {
 }
 
 async function loadFromFiles(files) {
+  const clsFile = files.find(f => /(^|\/)classes\.txt$/i.test(f.webkitRelativePath || f.name));
+  if (clsFile) setClasses(parseClassesText(await clsFile.text()));
   const imgFiles = files.filter(f => /\.(jpe?g|png|bmp)$/i.test(f.name) && /(^|\/)images\//i.test(f.webkitRelativePath || f.name));
   const lblFiles = files.filter(f => /\.txt$/i.test(f.name) && /(^|\/)labels\//i.test(f.webkitRelativePath || f.name));
   const lblMap = new Map(lblFiles.map(f => [f.name, f]));
@@ -395,7 +436,12 @@ window.addEventListener("keydown", (ev) => {
   if (!items.length) return;
   const it = items[idx];
   const k = ev.key;
-  if (/^[1-9]$/.test(k)) { setClass(Number(k) - 1); ev.preventDefault(); return; }
+  // 1~9 → 第 1~9 类；0 → 第 10 类（10 类口径需要）
+  if (/^[1-9]$/.test(k) || k === "0") {
+    const i = k === "0" ? 9 : Number(k) - 1;
+    if (i < CLASSES.length) { setClass(i); ev.preventDefault(); }
+    return;
+  }
   if (k === "Delete" || k === "Backspace") {
     if (sel >= 0) { pushUndo(); it.boxes.splice(sel, 1); sel = -1; markDirty(); draw(); }
     ev.preventDefault(); return;
@@ -443,12 +489,12 @@ function markDirty() {
    行人框中心在载具框内 + 被覆盖面积 ≥50% + 载具面积 ≥ 行人面积×0.8 → 删掉 */
 function applyRiderRule() {
   const it = items[idx];
-  const vehicles = it.boxes.filter(b => VEHICLE_IDS.includes(b[0]));
+  const vehicles = it.boxes.filter(b => vehicleIds().includes(b[0]));
   if (!vehicles.length) { toast("这一张没有载具框，无需清理"); return; }
   pushUndo();
   const before = it.boxes.length;
   it.boxes = it.boxes.filter((b) => {
-    if (b[0] !== PERSON_ID) return true;
+    if (b[0] !== personId()) return true;
     const [px1, py1, px2, py2] = boxXYXY(b);
     const pArea = Math.max(1e-9, (px2 - px1) * (py2 - py1));
     return !vehicles.some((v) => {

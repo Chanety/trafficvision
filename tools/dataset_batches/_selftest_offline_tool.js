@@ -38,8 +38,13 @@ global.Blob = class { constructor(p) { this.parts = p; } };
 global.setTimeout = () => 0;
 
 const probe = `
-globalThis.__t = { CLASSES, CLASS_CN, parseLabel, labelText, fromXYXY, boxXYXY,
+globalThis.__t = { get CLASSES() { return CLASSES; },
+                   get CLASS_CN() { return CLASS_CN; },
+                   parseLabel, labelText, fromXYXY, boxXYXY,
                    applyRiderRule,
+                   setClasses, parseClassesText, vehicleIds, personId,
+                   resetClasses: () => setClasses(["car","truck","bus","motorcycle","bicycle",
+                                                   "person","sign","bollard","tricycle"]),
                    setItems: (v) => { items = v; idx = 0; sel = -1; undo = {}; },
                    getBoxes: () => items[0].boxes,
                    getDirty: () => items[0].dirty };
@@ -56,6 +61,17 @@ function check(name, cond, extra) {
 
 check("类别表 9 类且顺序未变",
   t.CLASSES.join(",") === "car,truck,bus,motorcycle,bicycle,person,sign,bollard,tricycle");
+
+// 10 类口径：工具必须能按 classes.txt 切换类别表，否则协作者看不到 rider
+t.setClasses(t.parseClassesText(
+  "car\ntruck\nbus\nnonmotor\nperson\nsign\nbollard\nroadlamp\ntrafficlight\nrider\n"));
+check("按 classes.txt 切成 10 类", t.CLASSES.length === 10 && t.CLASSES[9] === "rider");
+check("第 10 类有中文名", t.CLASS_CN[9] === "非机动车驾驶员", t.CLASS_CN[9]);
+check("非机动车被认成载具（R 规则用）", t.vehicleIds().includes(3));
+check("person 编号随口径变为 4", t.personId() === 4, String(t.personId()));
+// 切回默认，后续用例按 9 类口径跑
+t.setClasses(t.parseClassesText(
+  "car\ntruck\nbus\nmotorcycle\nbicycle\nperson\nsign\nbollard\ntricycle\n"));
 
 const parsed = t.parseLabel("3 0.467044 0.627552 0.098409 0.150847\r\n0 0.177549 0.553880 0.142422 0.073192\n\n");
 check("解析 YOLO 标注两行", parsed.length === 2 && parsed[0][0] === 3, JSON.stringify(parsed));
