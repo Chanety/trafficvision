@@ -1,0 +1,81 @@
+# 类别表 schema —— 本项目的唯一权威来源
+#
+# 为什么要有这个文件：仓库里曾同时存在 9 / 10 / 12 类三套编号，且没有任何地方
+# 记录"某份权重/数据集属于哪一套"。结果是不匹配时**不报错**，只静默错位——
+# v9 评测里 sign 从 0.866 掉到 0.240 就是这个坑（真值从 16 个实例变成 139 个）。
+#
+# 规则：任何权重、数据集、评测配置都必须能追溯到这里的某个 schema_version。
+
+schema_version: "v3"
+name: merged10
+description: 生产口径。摩托车/自行车/三轮车合并为非机动车；另含路灯、信号灯、非机动车驾驶员
+effective_from: "2026-10-09"
+
+classes:
+  0: car
+  1: truck
+  2: bus
+  3: nonmotor
+  4: person
+  5: sign
+  6: bollard
+  7: roadlamp
+  8: trafficlight
+  9: rider
+
+display_names:
+  car: 汽车
+  truck: 卡车
+  bus: 公交
+  nonmotor: 非机动车
+  person: 行人
+  sign: 标志牌
+  bollard: 路桩
+  roadlamp: 路灯
+  trafficlight: 信号灯
+  rider: 非机动车驾驶员
+
+# 由基础 12 类（schema v2，标注文件的原始编号）映射而来。
+# 原始标注文件永不改动，合并只发生在构建训练集/输出时。
+base_schema: base12
+base_classes:
+  0: car
+  1: truck
+  2: bus
+  3: motorcycle
+  4: bicycle
+  5: person
+  6: sign
+  7: bollard
+  8: tricycle
+  9: roadlamp
+  10: trafficlight
+  11: rider
+map_from_base12:
+  0: 0
+  1: 1
+  2: 2
+  3: 3    # motorcycle -> nonmotor
+  4: 3    # bicycle    -> nonmotor
+  8: 3    # tricycle   -> nonmotor
+  5: 4    # person
+  6: 5    # sign
+  7: 6    # bollard
+  9: 7    # roadlamp
+  10: 8   # trafficlight
+  11: 9   # rider
+
+# 历史口径，仅供复现旧实验，不得用于新产物
+legacy:
+  base9:
+    note: v1~v6 与 videoset_01_label 使用
+    classes: [car, truck, bus, motorcycle, bicycle, person, sign, bollard, tricycle]
+  merged7:
+    note: v7 / v8n / v8s 使用
+    classes: [car, truck, bus, nonmotor, person, sign, bollard]
+
+# 关键类别备注（写进这里，避免散落在各文档）
+notes:
+  nonmotor: 电动车/踏板车归此类的原始来源 motorcycle；三轮车与三轮棚车同属此类（用户要求不拆分 e-bike / 三轮）
+  rider: 骑乘状态的人（骑车/骑摩托/骑三轮），由 labelrules.classify_riders 判定；纯步行的行人仍归 person
+  roadlamp / trafficlight: 固定机位下的静态结构，稳定时由"场景先验"保证不漏

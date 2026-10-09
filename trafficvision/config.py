@@ -72,6 +72,33 @@ MERGE_NAME_MAP: dict[str, str] = {
 # 开放词汇模型的提示词只覆盖 0~8（9 类）。9~11 由静态通道与骑乘判定补齐。
 WORLD_PROMPT_CLASSES: tuple[str, ...] = DEFAULT_CLASSES[:9]
 
+
+def _read_schema_tables():
+    """从 schemas/classes_v3_10.yaml 读唯一权威类别表。
+
+    该文件是类别的唯一来源；上面的内置常量只是"schema 读不到时的兜底"，
+    保证任何环境都能 import 成功。读得到就以 schema 为准，避免两处真相打架。
+    """
+    try:
+        import yaml
+
+        path = Path(__file__).resolve().parents[1] / "schemas" / "classes_v3_10.yaml"
+        d = yaml.safe_load(path.read_text(encoding="utf-8"))
+        base = tuple(str(d["base_classes"][i]) for i in sorted(d["base_classes"]))
+        merged = tuple(str(d["classes"][i]) for i in sorted(d["classes"]))
+        mapping = {int(k): int(v) for k, v in d["map_from_base12"].items()}
+        if base and merged and mapping:
+            return base, merged, mapping
+    except Exception:
+        pass
+    return None
+
+
+_SCHEMA_TABLES = _read_schema_tables()
+if _SCHEMA_TABLES:
+    DEFAULT_CLASSES, MERGED_CLASSES, MERGE_MAP = _SCHEMA_TABLES
+SCHEMA_VERSION = "v3"          # 与 schemas/classes_v3_10.yaml 保持一致
+
 # 每个类别的绘制颜色（BGR）
 CLASS_COLORS: dict[str, tuple[int, int, int]] = {
     "car": (80, 220, 80),
