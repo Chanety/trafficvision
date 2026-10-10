@@ -7,7 +7,7 @@ cd /d "%~dp0..\.."
 set "BATCH=batch_02"
 set "DATA=datasets\%BATCH_NAME%\%BATCH%"
 if not exist "%DATA%\images" (
-  echo [缺少数据] 还没下载 %BATCH%，请先双击 下载批次02.bat
+  echo [缺少数据] 还没解压 %BATCH%。把 batch_02.zip 放到 tools\dataset_batches\ 后双击 解压批次.bat
   pause
   exit /b 1
 )

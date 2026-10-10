@@ -1,8 +1,8 @@
 @echo off
 rem ============================================================
-rem  批次包配置：换仓库 / 换分支 / 换落地目录，只改下面四行
+rem  批次包配置：换落地目录只需改下面两行
+rem  2026-10-10 起批次包改为线下转发（负责人直接发 zip），
+rem  不再走 git 分支，所以这里不再有仓库 / 分支设置。
 rem ============================================================
-set "BATCH_REPO=Chanety/ai-software-opensource"
-set "BATCH_BRANCH=codex/dataset-batches-v1"
 set "BATCH_DIR=dataset_batches"
-set "BATCH_NAME=videoset_02_review"
+set "BATCH_NAME=videoset_02_review_v2"

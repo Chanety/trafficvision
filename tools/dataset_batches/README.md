@@ -3,8 +3,11 @@
 ## 这批数据是什么
 
 `datasets\videoset_02_label3`：332 帧 1080p、**尚未人工复核**（只有自动标注草稿，10 类口径）。
-要分给多个人同时干，所以按 **120 张一包**切成 2 包，另有 100 帧由项目方自留，
-图片体积大不进 `main`，放在独立分支 `codex/dataset-batches-v1` 的 `dataset_batches/` 下。
+要分给多个人同时干，所以按 **120 张一包**切成 2 包，另有 100 帧由项目方自留。
+
+> **2026-10-10 起改为线下分发**：批次包不再放 git 分支。原因见文末《为什么不再用分支分发》——
+> 两版共 356 MB 的包把仓库撑到 520 MB，clone 一次要下 520 MB；现在普通 clone 是 28.8 MB。
+> 包本体留在项目根 `dataset_batches\`（已被 .gitignore 排除），需要时直接转发/网盘给对方。
 
 | 批次 | 帧数 | 包大小 | 覆盖视频 | 说明 |
 |---|---|---|---|---|
@@ -24,41 +27,26 @@
 
 | 文件 | 作用 |
 |---|---|
-| `下载批次01/02.bat` | 拿到批次包并解压到 `datasets\videoset_02_review_v2\batch_NN\`（调用下面的 ps1） |
-| `download_batch.ps1` | 取包逻辑：本地 zip → 镜像直链 → git 稀疏拉取 → 给出求助提示，四步兜底 |
+| `解压批次.bat` | 把别人发来的 `batch_NN.zip` 解压到 `datasets\videoset_02_review_v2\batch_NN\`（不联网） |
 | `打开标注_批次01/02.bat` | 用中文复核工具打开已下载的批次（`tools\annotate_zh.py`） |
 | `打包复核结果.bat` + `pack_results.ps1` | 复核完把 `labels\` 打包成 `复核结果_batch_NN_日期.zip` 发回 |
-| `_batch_config.bat` | 仓库 / 分支 / 落地目录配置，换地方只改这一个文件 |
+| `_batch_config.bat` | 落地目录配置，换地方只改这一个文件 |
 | `make_batches.py` | 重新生成批次包与 bat（换数据集、换包大小都用它） |
 | `口径说明.txt` | **类别 ↔ 权重口径**（软件输出哪几类、这份标注喂给哪版权重），随每个包一起发 |
 
-## 拿包：下载脚本按这四步走，哪步先成功用哪步
+## 拿包（线下）
 
-1. **本地已经有 zip**：放在 `tools\dataset_batches\`、仓库根 `dataset_batches\`、
-   `下载\` 或桌面，双击 bat 直接解压 —— **不联网**，适合 QQ / 网盘 / U 盘转发
-2. **镜像直链**：`gh-proxy.com` → `ghproxy.net` → `raw.githubusercontent.com`
-3. **git 稀疏拉取**：`git clone --depth 1 --filter=blob:none --sparse` +
-   `sparse-checkout set --no-cone /dataset_batches/batch_NN.zip`，**只下载这一个包**（80 MB 那包实测 ~20 秒）
-4. 都不行 → 打印三条明确出路（找负责人要 zip / 加协作者 / 浏览器手动下），不猜不静默
+1. 负责人把 `batch_01.zip` / `batch_02.zip` 直接发给复核人（QQ / 网盘 / U 盘，60 MB 左右一个）。
+2. 复核人把 zip 丢进 `tools\dataset_batches\`，双击 `解压批次.bat` 选包解压
+   （默认解到 `datasets\videoset_02_review_v2\batch_NN\`，解压前会问，不会覆盖已改过的标注）。
+3. 双击 `打开标注_批次01.bat` 开始复核。
 
-### 实测结论（2026-10-07，本机）
+为什么不再走链接下载：仓库是**私有**的，`gh-proxy` / `jsdelivr` / `raw.githubusercontent`
+这些匿名通道一律 404 或连接重置（2026-10-07 实测），只有"对方本机登录过 GitHub 再走 git"
+能通——绕一大圈，最后还是要账号。直接发文件最快，也不要求对方有 GitHub 账号。
 
-| 通道 | 结果 |
-|---|---|
-| 本地 zip 解压 | ✅ 通（32 张图 + 32 个标注 + classes.txt + 标注说明.txt） |
-| `gh-proxy.com` / `ghproxy.net` 镜像 | ❌ 404 —— 仓库是**私有**的，匿名拿不到 |
-| `cdn.jsdelivr.net` | ❌ 404（只服务公开仓库） |
-| `raw.githubusercontent.com` | ❌ 连接被重置（国内常见） |
-| git 稀疏拉取 | ✅ 通（仓库内已登录账号，只下需要的那个包） |
-
-结论：**当前仓库是私有仓库**，所以给别人数据只有两条实际可行的路——
-
-- **A. 直接把 zip 发给对方**（QQ / 网盘 / U 盘），对方放到 `tools\dataset_batches\` 双击同名 bat 即可；
-  最快、不需要对方有 GitHub 账号
-- **B. 把对方加为仓库协作者**，并让对方本机 Git 登录过自己的账号，走 git 那条路
-
-如果希望"谁都能点链接下载"，要把仓库改成公开（或另开一个公开的数据仓库）——
-这是对外可见性的决定，改之前先确认，改完之后镜像通道才会通。
+> 现在仓库里**不再托管批次包**，所以"谁都能点链接下载"这件事在没有公开数据仓库之前不成立；
+> 要公开下载就得先把仓库转公开，或者建一个公开的数据仓库——这是对外可见性的决定，需要先确认。
 
 ## 复核规则（包内 `标注说明.txt` 是同一份）
 
@@ -96,17 +84,23 @@
 > 都由数据集目录生成，不再硬编码）。9 类的旧包与旧 bat 已移到 `_stale_9class\`，不要再发。
 > 每个包内都有《口径说明.txt》，说明软件输出类别与权重对应关系（完整版见 `docs\28-类别与权重口径对照.md`）。
 
-## 上传批次包到分支
+## 为什么不再用分支分发（2026-10-10）
 
-```powershell
-git checkout codex/dataset-batches-v1        # 首次：git checkout -b codex/dataset-batches-v1
-git add -f dataset_batches                   # 该目录在 main 被 .gitignore 忽略，需要 -f
-git commit -m "data: videoset_02 人工复核批次包（10 类，120 张一包，含口径说明）"
-git push -u origin codex/dataset-batches-v1
-git checkout main
-```
+原来批次包走独立分支 `codex/dataset-batches-v1`（`main` 被 .gitignore 挡住，只能 `git add -f`）。
+代价在换包时暴露出来：
 
-每个包的 sha256 见分支上的 `dataset_batches/manifest.json`；
-同样的参数重跑 `make_batches.py` 产物是逐字节确定的（zip 内时间戳固定为 2026-01-01），
-所以校验和不会因为重打而变。**但改了包内容（例如这次补进《口径说明.txt》）sha256 一定会变**，
-换包时记得把 manifest 一起更新并通知已下载的人。
+| 项 | 数值 |
+|---|---|
+| 一批包（3 个 zip） | 178 MB |
+| 换一版后分支历史里留两版 | 356 MB |
+| 仓库 `.git` 因此涨到 | 524.6 MB |
+| 评审/协作者 clone 一次要下 | 520 MB |
+
+包本身是**可再生成的产物**（`make_batches.py` 一条命令、逐字节确定），没有版本价值，
+不该占着代码仓库的历史。处理方式：用 `git filter-repo --path dataset_batches/ --invert-paths`
+把 `dataset_batches/` 从全部历史里摘掉、删除该分支，包改为线下转发。
+
+结果：`.git` 13.6 MB，普通 clone **28.8 MB**（最大的对象是 docs 里 3.3 MB 的 UI 截图）。
+
+> 遗留：GitHub 上那个批次包的 PR（`refs/pull/1/head`）仍指向被删分支的提交，
+> 服务端对象要等 GitHub 自行 GC；**普通 clone 不会拉它**，所以不影响使用。

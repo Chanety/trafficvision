@@ -11,7 +11,7 @@
 
 param(
     [string]$Batch = '',
-    [string]$DataName = 'videoset_02_review'
+    [string]$DataName = 'videoset_02_review_v2'
 )
 
 $ErrorActionPreference = 'Stop'

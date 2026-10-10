@@ -5,15 +5,15 @@ call "%~dp0_batch_config.bat"
 cd /d "%~dp0..\.."
 
 set "N="
-set /p N=请输入你复核的批次号（1 / 2 / 3）后回车：
+set /p N=请输入你复核的批次号（1 / 2）后回车：
 set "N=%N: =%"
 if not defined N (
-  echo [没有输入] 请重新双击本程序，输入 1 / 2 / 3 中的一个。
+  echo [没有输入] 请重新双击本程序，输入 1 / 2 中的一个。
   pause
   exit /b 1
 )
-if not "%N%"=="1" if not "%N%"=="2" if not "%N%"=="3" (
-  echo [批次号不对] 只能是 1 / 2 / 3。你输入的是：%N%
+if not "%N%"=="1" if not "%N%"=="2" (
+  echo [批次号不对] 只能是 1 / 2。你输入的是：%N%
   pause
   exit /b 1
 )
