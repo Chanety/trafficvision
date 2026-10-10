@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from .config import (
@@ -112,6 +113,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    # 中文 Windows 控制台默认 GBK，帮助文本里的 "px²" 等字符会触发
+    # UnicodeEncodeError 直接崩掉；保持原编码，只把编不出的字符降级显示。
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     args = build_parser().parse_args()
     world = args.world
     if world is None:
@@ -168,6 +176,8 @@ def main() -> None:
             if v.get("enabled"):
                 if "error" in v:
                     print(f"    上下文校验: 失败（{v['error']}）")
+                elif "skipped" in v:
+                    print(f"    上下文校验: 跳过（{v['skipped']}）")
                 else:
                     print(f"    上下文校验: 保留 {v['keep']} / 待确认 {v['review']}"
                           f" / 否掉 {v['reject']}"

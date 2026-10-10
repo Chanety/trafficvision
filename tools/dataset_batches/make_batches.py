@@ -5,7 +5,8 @@
     python tools/dataset_batches/make_batches.py --source datasets/videoset_02_label2 --name videoset_02_b2
 
 产出（默认写到仓库根的 dataset_batches\，该目录在 main 分支被 .gitignore 忽略）：
-    batch_01.zip ...            每个包 = images/ + labels/ + classes.txt + review_order.txt + 标注说明.txt
+    batch_01.zip ...            每个包 = images/ + labels/ + classes.txt + review_order.txt
+                                          + 标注说明.txt + 口径说明.txt + 离线包说明.txt + 离线标注工具
     manifest.json               批次清单（帧数、体积、sha256、来源视频分布、下载直链）
     下载批次NN.bat / 打开标注_批次NN.bat   供他人双击使用（utf-8 + CRLF）
 
@@ -35,6 +36,9 @@ from human_task import NOTICE_FILENAME, notice_text  # noqa: E402
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 # 一起塞进每个批次包、让它自带标注工具的一堆文件
 OFFLINE_TOOL = "标注工具_离线版.html"
+# 类别 ↔ 权重口径说明（2026-10-10 加：协作者反馈"输出类别和权重口径还没有"）
+# 只讲"标哪几类"是不够的——必须同时讲清"软件输出哪几类""这份标注喂给哪版权重"。
+SCHEMA_NOTE = "口径说明.txt"
 
 # 下载直链用的配置（与 _batch_config.bat 保持一致）
 REPO = "Chanety/ai-software-opensource"
@@ -63,6 +67,13 @@ LABEL_GUIDE = """========================================================
 
 【类别（{n_classes} 类，编号顺序不可改）】
 {classes_block}
+
+【这 {n_classes} 类就是软件的输出类别——但先读 口径说明.txt】
+  包里另有一份《口径说明.txt》，讲清三件事：
+    · 软件画面上会出现哪些类别（以及为什么现在默认只出 7 类 + 静态通道补 2 类）
+    · 你这批标注最终喂给哪版权重（v9b，10 类口径）
+    · 权重文件在哪、怎么核对 SHA-256
+  只按 classes.txt 标就可以，但"标完喂给谁"这件事在《口径说明.txt》里，建议看一眼。
 
 【三条硬规则】
   1) 先载具、后行人：**骑车/骑车的人单独标成"非机动车驾驶员 rider"**，
@@ -338,6 +349,12 @@ def main() -> None:
         write_text(stage / "离线包说明.txt",
                    OFFLINE_GUIDE.format(name=args.name, batch_id=pack_id, count=len(frames),
                                         n_classes=n_classes))
+        # 类别 ↔ 权重口径：标哪几类、软件输出哪几类、这份标注喂给哪版权重
+        note_src = TOOLS_DIR / SCHEMA_NOTE
+        if note_src.exists():
+            shutil.copy2(note_src, stage / SCHEMA_NOTE)
+        else:
+            print(f"提示：没找到 {SCHEMA_NOTE}，本包不含类别/权重口径说明")
         if tag:
             write_text(stage / NOTICE_FILENAME,
                        notice_text(f"\n本包批次号：{pack_id}    共 {len(frames)} 张\n"))
