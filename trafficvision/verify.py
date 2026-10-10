@@ -26,6 +26,16 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CLIP = ROOT / "weights" / "clip" / "ViT-B-32.pt"
 
+# OpenAI 官方发布地址（MIT）。本地没有这个文件时，语义校验只能跳过。
+CLIP_DOWNLOAD_URL = (
+    "https://openaipublic.azureedge.net/clip/models/"
+    "40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af/ViT-B-32.pt"
+)
+
+
+class MissingClipWeights(FileNotFoundError):
+    """CLIP 权重缺失。语义校验跳过，静态地图的其余部分照常工作。"""
+
 # 用户第二批反馈里的一个特殊失败模式：公交车停靠在同一位置很久，
 # 车窗立柱这种竖直结构被跨帧投票当成了"路灯"。它既不是目标物，
 # 也不属于任何类别——所以在所有静态类的反例里都加上"车辆部件"。
@@ -168,9 +178,16 @@ def decide(cls: str, box, frame_w: int, frame_h: int, verdict: dict) -> tuple[st
 
     if frac > MAX_AREA_FRAC.get(cls, 0.30):
         return "reject", f"框过大，占画面 {frac * 100:.1f}%"
+    # 灯杆短边上限（用户 2026-10-10 抽检反馈"楼宇被误识别路灯"）：
+    # CLIP 在本机位分不开"灯杆"与"建筑竖条"，靠几何兜底。
+    from .config import ROADLAMP_MAX_SHORT_SIDE
+    if cls == "roadlamp" and min(w, h) > ROADLAMP_MAX_SHORT_SIDE:
+        return "reject", f"短边 {min(w, h):.0f}px 过大，不像灯杆"
     # 用户要求：过小目标一律不识别（动态静态同一标准），这里先按全局尺寸门槛否掉
-    from .config import target_too_small
-    if target_too_small(box, cls):
+    from .config import static_thin_exempt, target_too_small
+    # 灯杆/信号灯杆属于细长结构，不能被短边门槛直接否掉（用户 2026-10-10 反馈
+    # "路灯未识别"，实测静态通道有 731 个检测就是这样被丢的）。
+    if target_too_small(box, cls) and not static_thin_exempt(box, cls):
         return "reject", f"过小（{w:.0f}×{h:.0f}px，面积 {w * h:.0f}px²）"
     if p_pos <= POS_ABSENT:
         return "reject", f"正例证据缺失（正例总概率 {p_pos:.2f}）"
@@ -201,6 +218,15 @@ class StaticVerifier:
                  temperature: float = 100.0) -> None:
         import clip  # 与 YOLO-World 共用同一份 ViT-B-32 权重
         import torch
+
+        clip_path = Path(weights) if weights else DEFAULT_CLIP
+        if not clip_path.exists():
+            raise MissingClipWeights(
+                f"缺少 CLIP 权重 {clip_path}，本次跳过语义校验"
+                f"（静态位置仍按跨帧投票结果画出来）。"
+                f"该权重为 OpenAI 官方发布、MIT 许可，下载后放到上面这个路径即可："
+                f"{CLIP_DOWNLOAD_URL}"
+            )
 
         self.torch = torch
         self.device = self._normalize_device(device, torch)
@@ -290,7 +316,16 @@ class StaticVerifier:
 
 
 def crop_with_context(img, box, pad: float = 1.8, min_side: int = 200):
-    """连上下文一起裁：框外留足够大的余量，CLIP 才能看见"它站在什么上面"。"""
+    """连上下文一起裁：框外留足够大的余量，CLIP 才能看见"它站在什么上面"。
+
+    2026-10-10 试过并**放弃**的改动（用户抽检反馈"楼宇被误识别路灯"）：
+    曾给竖长目标强制加左右上下文，想把"建筑竖条"和"灯杆"分开。实测
+    (a) 楼体那条照样被判"保留"——平移一格再问，建筑竖条仍得 0.66 分；
+    (b) 反而把真灯杆判掉了：上下文里一旦有行人，roadlamp 的反例
+        "a person walking on the street" 就胜出（112416 那根 12×238、
+        置信度 0.71 的真灯杆因此被否）。
+    所以恢复原样，改用几何判据兜底（见 config.ROADLAMP_MAX_SHORT_SIDE）。
+    """
     h, w = img.shape[:2]
     cw, ch = box[2] - box[0], box[3] - box[1]
     half = max(cw * pad, min_side / 2)

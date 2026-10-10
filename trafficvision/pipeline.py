@@ -35,6 +35,7 @@ from .config import (
     MIN_TARGET_AREA_PX,
     MIN_TARGET_SIDE_PX,
     TRACKER,
+    static_thin_exempt,
     target_too_small,
 )
 from .motion import TrackMotion
@@ -396,8 +397,9 @@ def scan_static_channel(video: str | Path, info: dict, weights: str | Path,
             if cls is None:
                 continue
             box = [float(v) for v in b.xyxy[0]]
-            # 静态目标同样适用"过小不识别"
-            if target_too_small(box, cls, min_side, min_area):
+            # 静态目标同样适用"过小不识别"，但灯杆/信号灯杆这类细长结构豁免：
+            # 它们短边经常不到 10px，一刀切会把整根杆子丢掉。
+            if target_too_small(box, cls, min_side, min_area) and not static_thin_exempt(box, cls):
                 continue
             per.setdefault(cls, []).append((float(b.conf), box))
         dets: list[tuple[str, list[float], float]] = []
@@ -733,6 +735,7 @@ def run_clip(
                 # 拿不准的照旧画出来——宁可让人看见一个误检，也不要漏掉真目标。
                 verify_stats: dict = {"enabled": False}
                 if static_verify and confirmed:
+                    from .verify import MissingClipWeights as _MissingClipWeights
                     try:
                         decisions = _verify_static(confirmed, video, info["width"],
                                                    info["height"], device)
@@ -759,6 +762,8 @@ def run_clip(
                                 for c in dropped],
                         }
                         confirmed = kept + unsure
+                    except _MissingClipWeights as exc:
+                        verify_stats = {"enabled": True, "skipped": str(exc)}
                     except Exception as exc:
                         verify_stats = {"enabled": True,
                                         "error": f"{type(exc).__name__}: {exc}"}

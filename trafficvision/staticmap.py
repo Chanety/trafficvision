@@ -36,6 +36,8 @@ from .config import (
     STATIC_MAP_MIN_RATIO,
     STATIC_MAP_MIN_AREA,
     STATIC_MAP_OCCLUDE_COVER,
+    STATIC_THIN_CLASSES,
+    static_thin_exempt,
 )
 
 
@@ -97,8 +99,27 @@ class _Cluster:
 
     @property
     def box(self) -> list[float]:
-        """代表框：各次观测的中位数，抗单帧框抖动。"""
+        """代表框。
+
+        默认取各次观测的**中位数**，抗单帧框抖动。
+
+        但细长目标（灯杆、信号灯杆）要另做处理：同一根杆在不同帧经常被切成
+        "整根"与"只有下半段"两种框，中位数只会得到下半段——用户反馈的
+        "图20 路灯未识别"就是这么来的（112416 里那根杆实际被检出过
+        [675,317,687,555]，确认框却是 [675,484,688,554]）。
+        因此对这两类改成**稳健并集**：取各次观测的分位数外包络，
+        既盖住整根杆，又不会被个别离群框拉飞。
+        """
         arr = np.asarray(self.boxes, dtype=float)
+        if self.cls in STATIC_THIN_CLASSES and len(arr) >= 3:
+            med = np.median(arr, axis=0)
+            lo = np.percentile(arr, 10, axis=0)
+            hi = np.percentile(arr, 90, axis=0)
+            # 只沿**竖直方向**取外包络：碎片是"整根杆"与"下半段"，高度要被补齐；
+            # 水平方向仍取中位数——否则灯头的宽度会被带到灯杆上，
+            # 把一根 13px 宽的杆撑成几十像素宽（实测会连带触发短边上限被误否）。
+            return [float(med[0]), float(min(lo[1], med[1])),
+                    float(med[2]), float(max(hi[3], med[3]))]
         return [float(v) for v in np.median(arr, axis=0)]
 
     @property
@@ -228,7 +249,9 @@ class StaticObjectMap:
             conf = float(det[2]) if len(det) > 2 else 0.0
             if cls not in self.classes:
                 continue
-            if _area(box) < self.min_area:
+            # 面积门槛：灯杆/信号灯杆这类细长结构豁免（否则细杆会整根被丢，
+            # 这是用户反馈"路灯未识别"的直接原因，见 config.static_thin_exempt）
+            if _area(box) < self.min_area and not static_thin_exempt(box, cls):
                 self.dropped_small += 1
                 continue
             cluster = self._match(cls, box)

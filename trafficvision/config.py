@@ -126,7 +126,10 @@ CLASS_DISPLAY_NAMES: dict[str, str] = {
     "bus": "公交",
     "nonmotor": "非机动车",
     "person": "行人",
-    "sign": "标志牌",
+    # 用户 2026-10-10：sign 这一类实际同时吃下交通标志、店招与广告牌，
+    # 叫"标志牌"指代不清，改为把两类都写出来。**只改显示名**，
+    # 类别键 sign 与编号 0~8 顺序都不动，已有标注与模型不受影响。
+    "sign": "标志提示牌与广告牌",
     "bollard": "路桩",
     "motorcycle": "摩托",
     "bicycle": "自行车",
@@ -202,6 +205,39 @@ def min_side_for(cls_name: str | None) -> float:
     return MIN_SIDE_BY_CLASS.get(cls_name, DEFAULT_MIN_SIDE_PX)
 
 
+# ------------------------------------------------- 静态通道：细长结构豁免
+# 灯杆 / 信号灯杆天然是细长条，短边经常不到 10px，会被"过小不识别"整根丢掉。
+# 实测 VID_20261004_112416 前 150 帧：静态通道里被判过小直接丢掉的检测有 731 个，
+# 最终只聚成 44 个簇——这就是用户反馈"图20 路灯未识别"的直接原因。
+# 只豁免"确实细长"的形状（长边够长 + 高宽比够大 + 面积仍非噪声），其余照旧过滤。
+STATIC_THIN_CLASSES: tuple[str, ...] = ("roadlamp", "trafficlight")
+STATIC_THIN_MIN_ASPECT = 3.0        # 长边 / 短边
+STATIC_THIN_MIN_LONG_SIDE = 40.0    # 长边下限（像素）
+STATIC_THIN_MIN_AREA = 120.0        # 豁免后仍要满足的面积下限
+
+
+def static_thin_exempt(box, cls_name: str | None) -> bool:
+    """该静态检测是否属于"细长结构"（灯杆一类），从而豁免短边/面积门槛。"""
+    if not cls_name or cls_name not in STATIC_THIN_CLASSES:
+        return False
+    w = float(box[2] - box[0])
+    h = float(box[3] - box[1])
+    long_side, short_side = max(w, h), min(w, h)
+    if long_side < STATIC_THIN_MIN_LONG_SIDE:
+        return False
+    if short_side <= 0 or long_side / short_side < STATIC_THIN_MIN_ASPECT:
+        return False
+    return (w * h) >= STATIC_THIN_MIN_AREA
+
+
+# 灯杆的"短边上限"：本机位（1080p 固定机位）实测真灯杆短边在 12~41px，
+# 而画在楼体立面上的那条误检短边是 64px。零样本图文匹配分不开这两种
+# （把框平移一格再问，建筑竖条照样得 0.66 分，真灯杆 0.54 分，见 docs/26），
+# 所以补一条几何约束，取两者之间。只对 roadlamp 生效；
+# 信号灯的横梁本来就宽，不适用这条。
+ROADLAMP_MAX_SHORT_SIDE = 50.0
+
+
 def target_too_small(box, cls_name: str | None = None,
                      min_side: float | None = None,
                      min_area: float | None = None) -> bool:
@@ -248,6 +284,15 @@ TRACKER = "bytetrack.yaml"
 STILL_WINDOW = 6          # 连续静止帧数
 STILL_THRESHOLD_PX = 3.0  # 位置波动阈值（像素）
 STILL_BIAS_PX = 2.0       # bias 允许值（迟滞带宽，吸收检测噪声与视角误差）
+# 净位移线索（用户 2026-10-10 抽检反馈"行人近点目标未识别"）：
+# 只判"窗口内波动范围"会把走得很慢的目标当成静止——实测 112254 第 24 帧有
+# 18 条行人轨迹里 14 条被藏掉，其中几条的估计速度是 25~40 px/s。
+# 波动的毛病是"抖动也会撑大范围"，所以再加一条**净位移**：
+# 窗口前 2 帧均值 → 后 2 帧均值，抖动会互相抵消，真移动不会。
+# 实测（同一段素材，被隐藏的观测）：
+#   行人 净位移中位 2.16px，13.9% 超过 5px；汽车 中位 0.79px，仅 0.2% 超过 5px。
+# 所以取 5px：能救回约 14% 被误藏的行人，而停放车辆几乎不受影响。
+STILL_NET_PX = 5.0        # 窗口内净位移超过该值 → 判定为在移动
 
 # ---------------------------------------------------------------- 跟踪与遮挡
 # 轨迹跳变防护：路口场景实测 7.8% 的样本是"轨迹突然跳到别的目标"（串轨），
