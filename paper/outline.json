@@ -1,0 +1,298 @@
+{
+  "plotting_plan": [
+    {"figure_id": "fig_signed_error_by_horizon", "title": "各梯度沿运动方向的有符号误差分布", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用四个并列的直方图展示误差几乎全部沿运动方向、且以超调为主，并标注各梯度的偏斜与峰度", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_error_magnitude_by_class", "title": "误差幅值按类别的分布", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用分梯度的箱线图比较各类别误差幅值，说明类别间单位量级相近", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_unit_vs_frame_error", "title": "轨迹级与帧级误差分解", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用两个直方图加一个散点图判断误差是单位级系统偏差还是帧级噪声", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_displacement_calibration", "title": "位移标定诊断", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用散点拟合图、比值直方图与分位数折线图给出标定关系、比值分布与偏置随位移的走势", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_tail_shape", "title": "尾部形态与拉普拉斯、高斯拟合对比", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用对数生存函数折线图与密度叠加直方图说明误差为重尾分布，拉普拉斯优于高斯", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_equivalent_time_offset", "title": "等效时间偏置随梯度的变化", "plot_type": "plot", "data_source": "both", "objective": "用折线图区分时间轴错位与速度量级高估两种解释", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_bias_persistence", "title": "逐单位偏差的稳定性与错误位移占比", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用前后半段散点图与分类型折线图给出偏差的持续性上限与错误位移占比", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_shape_summary", "title": "标准化后各类别的对数密度与尾部衰减", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用多条对数密度折线图与分组柱状图反推分布律，判断是否重于指数尾", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_shape_car", "title": "单一类别的形状诊断六面板", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用带宽扫描折线、对数密度折线、生存函数折线、风险率折线、峰形放大折线与正态分位散点图组成六面板", "aspect_ratio": "3:2"},
+    {"figure_id": "fig_model_family_comparison", "title": "分布族横评", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用分组柱状图按赤池信息量准则与近峰质量比较平滑族与带折点族", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_scale_mixture_summary", "title": "尺度混合的三个判据量", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用三个折线图给出主体权重、尺度比与尾部方差占比随梯度的走向", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_gate_roc_pr", "title": "重尾标签的门控可分性", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用接收者操作特征折线图与查准召回折线图给出留一视频的样本外可分性", "aspect_ratio": "3:2"},
+    {"figure_id": "fig_gate_benefit_cost", "title": "门控的收益与代价", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用两个折线图给出保留率与中位、P90 误差的权衡，并对比随机门控与理想门控上界", "aspect_ratio": "3:2"},
+    {"figure_id": "fig_normalisation_control", "title": "尺度归一化对照", "plot_type": "plot", "data_source": "experimental_log.md", "objective": "用分组柱状图与散点图检验重尾标签是否为透视尺度产物", "aspect_ratio": "16:9"},
+    {"figure_id": "fig_error_attribution", "title": "像素口径下的误差质量归属与可控项", "plot_type": "plot", "data_source": "both", "objective": "用柱状图与水平条形图给出误差质量按类别与按机制的归属，以及静态结构零位移预判的收益", "aspect_ratio": "16:9"}
+  ],
+  "intro_related_work_plan": {
+    "introduction_strategy": {
+      "hook_hypothesis": "固定监控相机只能看到现在，装不了雷达的存量机位需要纯视觉的短时预判",
+      "problem_gap_hypothesis": "已有工作多在通行轨迹数据集上比平均误差，既回避了因果性约束，也没有刻画误差分布的多机制结构；因此指南针指向了错误的改进方向",
+      "search_directions": [
+        "pedestrian trajectory prediction constant velocity baseline short horizon",
+        "monocular traffic camera object tracking and prediction deployment",
+        "background subtraction stationary object suppression ghost detection",
+        "heavy-tailed error distribution robust estimation scale mixture",
+        "model calibration confidence of neural network predictions"
+      ]
+    },
+    "related_work_strategy": {
+      "overview": "相关工作分三簇：短时轨迹预测与匀速基线之争、检测跟踪链路的稳定性机制、以及误差分布与不确定性刻画。第一簇说明匀速是强基线这一结论已有独立文献支持；第二簇定位我们的场景机制相对背景建模与鬼影抑制的位置；第三簇说明为什么必须刻画分布而不只是均值。",
+      "subsections": [
+        {
+          "subsection_title": "短时轨迹预测与匀速基线",
+          "methodology_cluster": "参数化运动模型、滤波与学习式轨迹预测",
+          "sota_investigation_mission": "确认在短时域、单目、无地图无交互的设定下，匀速模型的相对位置",
+          "limitation_hypothesis": "学习式方法依赖地图与交互上下文，缺少这些条件时收益为负；而多数工作只报均值误差，掩盖了误差的多机制结构",
+          "limitation_search_queries": [
+            "constant velocity model pedestrian motion prediction short horizon",
+            "vehicle trajectory prediction survey map interaction context",
+            "interacting multiple model maneuver classification prediction"
+          ],
+          "bridge_to_our_method": "我们不提出新的运动模型，而是把匀速基线推到工程边界，并把改进预算投向身份关联与场景结构"
+        },
+        {
+          "subsection_title": "检测跟踪链路的稳定性",
+          "methodology_cluster": "跟踪-by-检测、数据关联与背景建模",
+          "sota_investigation_mission": "找出短时预判的主要误差来源是运动模型还是关联层",
+          "limitation_hypothesis": "串轨与静止目标消失分别是关联层与状态层的经典问题，但公开评测通常不把它们与预判误差联系起来",
+          "limitation_search_queries": [
+            "multiple object tracking literature review association identity switch",
+            "background modeling foreground detection overview",
+            "detecting ghosts and shadows in video streams"
+          ],
+          "bridge_to_our_method": "我们用身份切断判据、遮挡续推与净位移静止判据把关联层误差压下来，并给出各项的配对实测收益"
+        },
+        {
+          "subsection_title": "误差分布与不确定性刻画",
+          "methodology_cluster": "重尾分布建模、概率校准与小目标检测",
+          "sota_investigation_mission": "确定用哪一族分布描述预判误差，以及均值型指标是否合适",
+          "limitation_hypothesis": "用高斯假设与均值误差评估会同时低估尾部风险与误判改进方向",
+          "limitation_search_queries": [
+            "calibration of modern neural networks overconfidence",
+            "small object detection survey benchmarks traffic scenes",
+            "tiled inference small object detection evaluation"
+          ],
+          "bridge_to_our_method": "我们把预测误差当作沿运动方向的随机变量，逐层拟合分布族并据此定义判据量"
+        }
+      ]
+    }
+  },
+  "section_plan": [
+    {
+      "section_title": "引言",
+      "subsections": []
+    },
+    {
+      "section_title": "相关工作",
+      "subsections": []
+    },
+    {
+      "section_title": "方法：四项被声明的贡献",
+      "subsections": [
+        {
+          "subsection_title": "静态结构隐地图：跨帧投票与语义裁定",
+          "content_bullets": [
+            "以低置信开放词汇扫描加提示词集成换取召回，再以跨帧位置一致性投票筛出候选位置",
+            "对每个候选裁出外扩 1.8 倍的上下文，用零样本图文匹配在正反例词表上打分，输出保留、待确认、否掉三档判决",
+            "已被确认的位置按机位缓存为场景先验，使扫描与裁定的开销只付一次"
+          ],
+          "citation_hints": [
+            "Cheng (YOLO-World: Real-Time Open-Vocabulary Object Detection)",
+            "Radford (Learning Transferable Visual Models From Natural Language Supervision)",
+            "Minderer (Simple Open-Vocabulary Object Detection with Vision Transformers)",
+            "Bouwmans (Traditional and Recent Approaches in Background Modeling for Foreground Detection: An Overview)"
+          ]
+        },
+        {
+          "subsection_title": "身份切断与带出画判据的遮挡续推",
+          "content_bullets": [
+            "位移超过 max(40 像素, 4 倍步长中位) 且与上一帧框重叠低于 0.1 时判定串轨，切断轨迹并新建身份",
+            "成熟轨迹被漏检时用卡尔曼外推继续渲染至多 12 帧，外推中心一旦离开画面立即停止，消除空框走出画面"
+          ],
+          "citation_hints": [
+            "Bewley (Simple Online and Realtime Tracking)",
+            "Zhang (ByteTrack: Multi-Object Tracking by Associating Every Detection Box)",
+            "Kalman (A New Approach to Linear Filtering and Prediction Problems)"
+          ]
+        },
+        {
+          "subsection_title": "净位移判据的静止状态机",
+          "content_bullets": [
+            "连续 6 帧未移动判定为静止，不渲染也不预判；容差随框高缩放以吸收近处目标的检测抖动",
+            "在波动范围判据之前先算窗口内净位移，抖动在净位移上相消而真移动不会，从而救回慢速行人",
+            "静态结构类豁免于隐藏，保证画面中的固定参考物始终可见"
+          ],
+          "citation_hints": [
+            "Cucchiara (Detecting Moving Objects, Ghosts, and Shadows in Video Streams)",
+            "Ghimire (Comparison of Two Methods for Stationary Incident Detection Based on Background Image)"
+          ]
+        },
+        {
+          "subsection_title": "预判误差的分布族逐层诊断",
+          "content_bullets": [
+            "把沿运动方向的误差当作随机变量，依次拟合高斯、拉普拉斯、两片高斯、不对称拉普拉斯、学生 t 与两成分高斯混合",
+            "以贝叶斯信息量准则与近峰质量同时判定，区分平滑族与带折点族，并检验尖峰是真实存在还是混合结构的表观产物",
+            "把重尾成分的后验责任作为失败模式的标签；由于该标签需要未来观测才能获得，只用作标签而不作为在线特征，在线可分性另行评估"
+          ],
+          "citation_hints": [
+            "Scholler (What the Constant Velocity Model Can Teach Us About Pedestrian Motion Prediction)",
+            "Guo (On Calibration of Modern Neural Networks)"
+          ]
+        },
+        {
+          "subsection_title": "数据集构建与标注规程",
+          "content_bullets": [
+            "确立三条标注硬规则：先载具后行人（骑车人与驾驶位上的人只标载具，骑车人另立 rider 类而非删除）；前九类序号永久冻结、新类只能追加；拿不准的框保留而不删除（漏标对模型的伤害远大于误检）",
+            "自动预标注之后紧跟一次被量化的人工纠错：报告人工删除、补标与改类的比例，使自动标注的残差已知而非假定",
+            "把复核工作离线分发：图像目录、类别表、书面规则与零安装浏览器工具打成一个批次包，只回传标注文件，使复核吞吐不依赖本项目环境",
+            "两条数据卫生红线：为稀有类挖掘补充样本时必须排除全部验证视频（早期版本从全部分段挖掘曾造成 20.9% 泄漏）；通过时序投票的静态位置仍送人工裁定，因为时序稳定性无法区分路桩与路缘石"
+          ],
+          "citation_hints": [
+            "Cucchiara (Detecting Moving Objects, Ghosts, and Shadows in Video Streams)",
+            "Lin (Focal Loss for Dense Object Detection)",
+            "Bouwmans (Traditional and Recent Approaches in Background Modeling for Foreground Detection: An Overview)"
+          ]
+        }
+      ]
+    },
+    {
+      "section_title": "实验设置",
+      "subsections": []
+    },
+    {
+      "section_title": "结果",
+      "subsections": [
+        {
+          "subsection_title": "检测端结果",
+          "content_bullets": [
+            "在目标域与旧街面两个验证集上给出链式微调与从零训练、不同骨干规模的 mAP50 对比",
+            "给出加权框融合的提升幅度与其推理成本代价",
+            "给出分辨率从 960 提到 1280 带来的精度与召回变化"
+          ],
+          "citation_hints": [
+            "Redmon (You Only Look Once: Unified, Real-Time Object Detection)",
+            "Solovyev (Weighted Boxes Fusion: Ensembling Boxes from Different Object Detection Models)",
+            "Ultralytics YOLO version 8.4.171",
+            "Zhu (Detection and Tracking Meet Drones Challenge)"
+          ]
+        },
+        {
+          "subsection_title": "预判端结果与组件消融",
+          "content_bullets": [
+            "以六段各三百帧的规范口径给出每帧可预判目标数、各梯度中位误差与轨迹跳变率",
+            "给出身份切断与遮挡续推的配对消融，说明各自改变了哪个环节",
+            "给出场景先验缓存对每帧耗时的影响并说明输出逐位一致"
+          ],
+          "citation_hints": [
+            "Zhang (ByteTrack: Multi-Object Tracking by Associating Every Detection Box)",
+            "Luo (Multiple Object Tracking: A Literature Review)"
+          ]
+        }
+      ]
+    },
+    {
+      "section_title": "误差结构分析",
+      "subsections": [
+        {
+          "subsection_title": "误差的方向性与标定",
+          "content_bullets": [
+            "给出垂直方向误差的中位数量级，说明误差几乎全部沿运动方向",
+            "给出带截距的位移标定拟合与过原点增益，区分乘性缩放与加性偏置",
+            "给出等效时间偏置随梯度的走势，判定是时间轴错位还是速度量级高估"
+          ],
+          "citation_hints": [
+            "Scholler (What the Constant Velocity Model Can Teach Us About Pedestrian Motion Prediction)"
+          ]
+        },
+        {
+          "subsection_title": "分布形态与尾部分量",
+          "content_bullets": [
+            "给出标准化后的对数密度、对数生存函数与风险率走势，据此判断尾部是否重于指数尾",
+            "给出近峰实测质量与各模型预测质量的对比，检验折点是否存在",
+            "给出分布族横评的胜出统计与两成分拟合的主体权重、尺度比与尾部方差占比"
+          ],
+          "citation_hints": [
+            "Lin (Focal Loss for Dense Object Detection)",
+            "Khalili (SOD-YOLOv8: Enhancing YOLOv8 for Small Object Detection in Traffic Scenes)"
+          ]
+        },
+        {
+          "subsection_title": "尺度归一化对照",
+          "content_bullets": [
+            "给出对数误差与对数框高的回归斜率与决定系数，量化透视尺度能解释多少误差",
+            "给出像素口径与归一化口径重尾标签的翻转率",
+            "给出五组特征集下的门控样本外曲线下面积，分离尺度代理贡献"
+          ],
+          "citation_hints": [
+            "Rezaei (Traffic-Net: 3D Traffic Monitoring Using a Single Camera)"
+          ]
+        },
+        {
+          "subsection_title": "重尾样本的在线可分性",
+          "content_bullets": [
+            "以留一视频交叉验证给出门控的曲线下面积与平均精度，并给出固定查准率下的召回",
+            "给出保留率与中位、P90 误差的权衡曲线，与随机门控和理想门控上界对照",
+            "说明像素口径下的表观收益来自筛掉近处大目标，并给出纠正后的结论"
+          ],
+          "citation_hints": [
+            "Guo (On Calibration of Modern Neural Networks)"
+          ]
+        },
+        {
+          "subsection_title": "像素口径下的误差归属与可控项",
+          "content_bullets": [
+            "给出误差质量按类别与按机制的归属，指出主导项与其频率来源",
+            "给出静态结构零位移预判的解析评估结果及其对总量的影响",
+            "给出不画预判框这一取舍在保留率与误差之间的权衡表"
+          ],
+          "citation_hints": [
+            "Bouwmans (Traditional and Recent Approaches in Background Modeling for Foreground Detection: An Overview)"
+          ]
+        }
+      ]
+    },
+    {
+      "section_title": "负结果",
+      "subsections": []
+    },
+    {
+      "section_title": "讨论与局限",
+      "subsections": []
+    },
+    {
+      "section_title": "应用落地路径",
+      "subsections": [
+        {
+          "subsection_title": "实时化",
+          "content_bullets": [
+            "给出端到端单帧代价、单卡吞吐与静态通道两次运行的开销对比",
+            "说明主导开销与其可由场景先验消除的部分，据此说明实时化应走降采样与先检测后细化的调度，而不是换更大的模型"
+          ],
+          "citation_hints": [
+            "Ultralytics YOLO version 8.4.171"
+          ]
+        },
+        {
+          "subsection_title": "一次相机标定换取米制速度",
+          "content_bullets": [
+            "说明固定机位下一次标定即可把像素预判换算为米与千米每小时，并解锁此前被否掉的地面平面建模",
+            "指出这是唯一新增输出而非改善已有输出的改动"
+          ],
+          "citation_hints": [
+            "Rezaei (Traffic-Net: 3D Traffic Monitoring Using a Single Camera)",
+            "Hirano (Virtual Inverse Perspective Mapping for Simultaneous Pose and Motion Estimation)"
+          ]
+        },
+        {
+          "subsection_title": "合规、隐私与真值",
+          "content_bullets": [
+            "说明检测与关联链路的强传染性许可证在闭源交付下必须替换，以及可行替代路径",
+            "说明公开前的人脸与车牌脱敏义务与第三方数据集的再分发边界",
+            "说明自证式真值是唯一可能改变全部报数的输入，也是可核验精度主张的前提"
+          ],
+          "citation_hints": [
+            "Zhu (Detection and Tracking Meet Drones Challenge)",
+            "Guo (On Calibration of Modern Neural Networks)"
+          ]
+        }
+      ]
+    },
+    {
+      "section_title": "结论",
+      "subsections": []
+    }
+  ]
+}

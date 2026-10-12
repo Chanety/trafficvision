@@ -1,0 +1,223 @@
+\begin{thebibliography}{31}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Aharon et~al.(2022)Aharon, Orfaig, and Bobrovsky]{aharon2022botsort}
+Nir Aharon, Roy Orfaig, and Ben-Zion Bobrovsky.
+\newblock {BoT-SORT}: Robust associations multi-pedestrian tracking.
+\newblock arXiv:2206.14651, 2022.
+
+\bibitem[Akyon et~al.(2022)Akyon, Altinuc, and Temizel]{akyon2022sahi}
+Fatih~Cagatay Akyon, Sinan~Onur Altinuc, and Alptekin Temizel.
+\newblock Slicing aided hyper inference and fine-tuning for small object
+  detection.
+\newblock arXiv:2202.06934, 2022.
+
+\bibitem[Bewley et~al.(2016)Bewley, Ge, Ott, Ramos, and
+  Upcroft]{bewick2016sort}
+Alex Bewley, Zongyuan Ge, Lionel Ott, Fabio Ramos, and Ben Upcroft.
+\newblock Simple online and realtime tracking.
+\newblock In \emph{2016 IEEE International Conference on Image Processing
+  (ICIP)}, pages 3464--3468, 2016.
+\newblock \doi{10.1109/ICIP.2016.7533003}.
+
+\bibitem[Bharilya and Kumar(2023)]{bharilya2023avtraj}
+Vatsal Bharilya and Naveen Kumar.
+\newblock Machine learning for autonomous vehicle's trajectory prediction: A
+  comprehensive survey, challenges, and future research directions.
+\newblock arXiv:2307.07527, 2023.
+
+\bibitem[Blom and Bar-Shalom(1988)]{blom1988imm}
+Henk A.~P. Blom and Yaakov Bar-Shalom.
+\newblock The interacting multiple model algorithm for systems with {Markovian}
+  switching coefficients.
+\newblock \emph{IEEE Transactions on Automatic Control}, 33\penalty0
+  (8):\penalty0 780--783, 1988.
+\newblock \doi{10.1109/9.1299}.
+
+\bibitem[Bouwmans(2014)]{bouwmans2014background}
+Thierry Bouwmans.
+\newblock Traditional and recent approaches in background modeling for
+  foreground detection: An overview.
+\newblock \emph{Computer Science Review}, 11-12:\penalty0 31--66, 2014.
+\newblock \doi{10.1016/j.cosrev.2014.04.001}.
+
+\bibitem[Cao et~al.(2023)Cao, Pang, Weng, Khirodkar, and Kitani]{cao2023ocsort}
+Jinkun Cao, Jiangmiao Pang, Xinshuo Weng, Rawal Khirodkar, and Kris Kitani.
+\newblock Observation-centric {SORT}: Rethinking {SORT} for robust multi-object
+  tracking.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision
+  and Pattern Recognition (CVPR)}, pages 9686--9696, 2023.
+\newblock \doi{10.1109/CVPR52729.2023.00934}.
+
+\bibitem[Cheng et~al.(2022)Cheng, Yuan, Yao, Yan, Zeng, Xie, and
+  Han]{cheng2022smallobj}
+Gong Cheng, Xiang Yuan, Xiwen Yao, Kebing Yan, Qingtian Zeng, Xingxing Xie, and
+  Junwei Han.
+\newblock Towards large-scale small object detection: Survey and benchmarks.
+\newblock arXiv:2207.14096, 2022.
+
+\bibitem[Cheng et~al.(2024)Cheng, Song, Ge, Liu, Wang, and
+  Shan]{cheng2024yoloworld}
+Tianheng Cheng, Lin Song, Yixiao Ge, Wenyu Liu, Xinggang Wang, and Ying Shan.
+\newblock {YOLO-World}: Real-time open-vocabulary object detection.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision
+  and Pattern Recognition (CVPR)}, 2024.
+\newblock \doi{10.1109/CVPR.2024.01599}.
+
+\bibitem[Cucchiara et~al.(2003)Cucchiara, Grana, Piccardi, and
+  Prati]{cucchiara2003ghosts}
+Rita Cucchiara, Costantino Grana, Massimo Piccardi, and Andrea Prati.
+\newblock Detecting moving objects, ghosts, and shadows in video streams.
+\newblock \emph{IEEE Transactions on Pattern Analysis and Machine
+  Intelligence}, 25\penalty0 (10):\penalty0 1337--1342, 2003.
+\newblock \doi{10.1109/TPAMI.2003.1233909}.
+
+\bibitem[Deo et~al.(2018)Deo, Rangesh, and Trivedi]{deo2018maneuver}
+Nachiket Deo, Akshay Rangesh, and Mohan~M. Trivedi.
+\newblock How would surround vehicles move? {A} unified framework for maneuver
+  classification and motion prediction.
+\newblock arXiv:1801.06523, 2018.
+
+\bibitem[Finet et~al.(2025)Finet, Martins, Hayet, et~al.]{finet2025human}
+Corentin Finet, Samuel Da~Silva Martins, Jean-Bernard Hayet, et~al.
+\newblock Recent advances in multi-agent human trajectory prediction: A
+  comprehensive review.
+\newblock arXiv:2506.14831, 2025.
+
+\bibitem[Ghimire and Lee(2025)]{ghimire2025stationary}
+Deepak Ghimire and Joonwhoan Lee.
+\newblock Comparison of two methods for stationary incident detection based on
+  background image.
+\newblock arXiv:2506.14256, 2025.
+
+\bibitem[Gu et~al.(2021)Gu, Lin, Kuo, and Cui]{gu2021vild}
+Xiuye Gu, Tsung-Yi Lin, Weicheng Kuo, and Yin Cui.
+\newblock Open-vocabulary object detection via vision and language knowledge
+  distillation.
+\newblock arXiv:2104.13921, 2021.
+
+\bibitem[Guo et~al.(2017)Guo, Pleiss, Sun, and Weinberger]{guo2017calibration}
+Chuan Guo, Geoff Pleiss, Yu~Sun, and Kilian~Q. Weinberger.
+\newblock On calibration of modern neural networks.
+\newblock In \emph{Proceedings of the 34th International Conference on Machine
+  Learning (ICML)}, volume~70 of \emph{PMLR}, pages 1321--1330, 2017.
+
+\bibitem[Hasan et~al.(2021)Hasan, Solernou, Paschalidis, Wang, Merat, and
+  Barnard]{hasan2021maneuver}
+Mohamed Hasan, Albert Solernou, Evangelos Paschalidis, Ruizhi Wang, Natasha
+  Merat, and Yvonne Barnard.
+\newblock Maneuver-aware pooling for vehicle trajectory prediction.
+\newblock arXiv:2104.14079, 2021.
+
+\bibitem[Hirano et~al.(2023)Hirano, Senoo, Kishi, and Ishikawa]{hirano2023vipm}
+Masao Hirano, Taku Senoo, Naoki Kishi, and Masatoshi Ishikawa.
+\newblock Virtual inverse perspective mapping for simultaneous pose and motion
+  estimation.
+\newblock arXiv:2303.05192, 2023.
+
+\bibitem[Kalman(1960)]{kalman1960}
+Rudolf~E. Kalman.
+\newblock A new approach to linear filtering and prediction problems.
+\newblock \emph{Journal of Basic Engineering}, 82\penalty0 (1):\penalty0
+  35--45, 1960.
+\newblock \doi{10.1115/1.3662552}.
+
+\bibitem[Keles et~al.(2022)Keles, Salmanoglu, Guzel, Tekin, Sumbul, and
+  Kalkan]{keles2022sliced}
+M.~Cagri Keles, Berk Salmanoglu, M.~Selim Guzel, Batuhan Tekin, Furkan Sumbul,
+  and Sinan Kalkan.
+\newblock Evaluation of {YOLO} models with sliced inference for small object
+  detection.
+\newblock arXiv:2203.04799, 2022.
+
+\bibitem[Khalili and Smyth(2024)]{khalili2024sodyolov8}
+Boshra Khalili and Andrew~W. Smyth.
+\newblock {SOD-YOLOv8}: Enhancing {YOLOv8} for small object detection in
+  traffic scenes.
+\newblock arXiv:2408.04786, 2024.
+
+\bibitem[Liu et~al.(2021)Liu, Mao, Fang, Zhu, and Meng]{liu2021vehicletraj}
+Jianbang Liu, Xizhe Mao, Yuxuan Fang, Delong Zhu, and Max Q.-H. Meng.
+\newblock A survey on deep-learning approaches for vehicle trajectory
+  prediction in autonomous driving.
+\newblock arXiv:2110.10436, 2021.
+
+\bibitem[Luo et~al.(2021)Luo, Xing, Milan, Zhang, Liu, and Kim]{luo2021mot}
+Wenhan Luo, Junliang Xing, Anton Milan, Xiaoqin Zhang, Wei Liu, and Tae-Kyun
+  Kim.
+\newblock Multiple object tracking: A literature review.
+\newblock \emph{Artificial Intelligence}, 293:\penalty0 103448, 2021.
+\newblock \doi{10.1016/j.artint.2020.103448}.
+
+\bibitem[Minderer et~al.(2022)Minderer, Gritsenko, Stone,
+  et~al.]{minderer2022owlvit}
+Matthias Minderer, Alexey Gritsenko, Austin Stone, et~al.
+\newblock Simple open-vocabulary object detection with vision transformers.
+\newblock arXiv:2205.06230, 2022.
+
+\bibitem[Radford et~al.(2021)Radford, Kim, Hallacy, et~al.]{radford2021clip}
+Alec Radford, Jong~Wook Kim, Chris Hallacy, et~al.
+\newblock Learning transferable visual models from natural language
+  supervision.
+\newblock In \emph{Proceedings of the 38th International Conference on Machine
+  Learning (ICML)}, volume 139 of \emph{PMLR}, pages 8748--8763, 2021.
+
+\bibitem[Raskoti et~al.(2025)Raskoti, Islam, Wang, Hu, Bhattacharya, and
+  Wang]{raskoti2025miat}
+Chirath Raskoti, Israt Islam, Xiaodong Wang, Rui Hu, Tamal Bhattacharya, and
+  Xianbiao Wang.
+\newblock {MIAT}: Maneuver-intention-aware transformer for spatio-temporal
+  trajectory prediction.
+\newblock arXiv:2504.05059, 2025.
+
+\bibitem[Rezaei et~al.(2021)Rezaei, Azarmi, and
+  Mirzaei~Pour]{rezaei2021trafficnet}
+Mohsen Rezaei, Mohsen Azarmi, and Farzad Mirzaei~Pour.
+\newblock {Traffic-Net}: {3D} traffic monitoring using a single camera.
+\newblock arXiv:2109.09165, 2021.
+
+\bibitem[Sch{\"o}ller et~al.(2020)Sch{\"o}ller, Aravantinos, Lay, and
+  Knoll]{scholler2020cv}
+Christoph Sch{\"o}ller, Vincent Aravantinos, Florian Lay, and Alois Knoll.
+\newblock What the constant velocity model can teach us about pedestrian motion
+  prediction.
+\newblock \emph{IEEE Robotics and Automation Letters}, 5\penalty0 (2):\penalty0
+  1696--1703, 2020.
+\newblock \doi{10.1109/LRA.2020.2969925}.
+
+\bibitem[Solovyev et~al.(2021)Solovyev, Wang, and Gabruseva]{solovyev2021wbf}
+Roman Solovyev, Weimin Wang, and Tatiana Gabruseva.
+\newblock Weighted boxes fusion: Ensembling boxes from different object
+  detection models.
+\newblock \emph{Image and Vision Computing}, 107:\penalty0 104117, 2021.
+\newblock \doi{10.1016/j.imavis.2021.104117}.
+
+\bibitem[Wojke et~al.(2017)Wojke, Bewley, and Paulus]{wojke2017deepsort}
+Nicolai Wojke, Alex Bewley, and Dietrich Paulus.
+\newblock Simple online and realtime tracking with a deep association metric.
+\newblock In \emph{2017 IEEE International Conference on Image Processing
+  (ICIP)}, pages 3645--3649, 2017.
+\newblock \doi{10.1109/ICIP.2017.8296962}.
+
+\bibitem[Zhang et~al.(2022)Zhang, Sun, Jiang, et~al.]{zhang2022bytetrack}
+Yifu Zhang, Peize Sun, Yi~Jiang, et~al.
+\newblock {ByteTrack}: Multi-object tracking by associating every detection
+  box.
+\newblock In \emph{European Conference on Computer Vision (ECCV)}, pages 1--21,
+  2022.
+\newblock \doi{10.1007/978-3-031-20047-2_1}.
+
+\bibitem[Zhu et~al.(2022)Zhu, Wen, Du, Bian, Fan, Hu, and
+  Ling]{zhu2022visdrone}
+Pengfei Zhu, Longyin Wen, Dawei Du, Xiao Bian, Heng Fan, Qinghua Hu, and Haibin
+  Ling.
+\newblock Detection and tracking meet drones challenge.
+\newblock \emph{IEEE Transactions on Pattern Analysis and Machine
+  Intelligence}, 44\penalty0 (11):\penalty0 7380--7399, 2022.
+\newblock \doi{10.1109/TPAMI.2021.3119563}.
+
+\end{thebibliography}

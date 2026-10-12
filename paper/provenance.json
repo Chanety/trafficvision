@@ -1,0 +1,105 @@
+{
+  "created_at": "2026-10-11T23:44:17",
+  "inputs": {
+    "idea.md": {
+      "sha256": "7b3ad66d135cf5275b1223e6fc3ea27b9ee5c08d57ae11ceeb90bb46dbe64024",
+      "bytes": 11477
+    },
+    "experimental_log.md": {
+      "sha256": "bf9dbd28c544a47aa4176ee5666945383955ae5ac490844d654bd27aad8cb38a",
+      "bytes": 21802
+    },
+    "template.tex": {
+      "sha256": "d57580e65113f76d31ee675459064c1a7c42c32f463269148efd4e5a82a0e734",
+      "bytes": 1157
+    },
+    "conference_guidelines.md": {
+      "sha256": "3633a01a8cf2a96f9ef6f68e47ba8b9dff4806c6ca13129990bb524edb8417c2",
+      "bytes": 1652
+    }
+  },
+  "figures": {
+    "fig_bias_persistence.png": {
+      "sha256": "b991c49f86c19544bb80647ff398b7458a8a3de233050c39d61bc3675336eb51",
+      "bytes": 208374
+    },
+    "fig_displacement_calibration.png": {
+      "sha256": "be003151e782ba49180f6938656e1e51e095cac3db1e743b1dbeb2742ef1b737",
+      "bytes": 374058
+    },
+    "fig_equivalent_time_offset.png": {
+      "sha256": "3998bf0299a524a193013e376080092836000b291abb189ffe7db96ba295ff74",
+      "bytes": 176525
+    },
+    "fig_error_attribution.png": {
+      "sha256": "72bed8e83691faa3c692a815ed6f730b505e6ab450e780c8dcb3e376fea8b755",
+      "bytes": 158562
+    },
+    "fig_error_magnitude_by_class.png": {
+      "sha256": "d5da38f5707197278e246e5dd4e071f66c1e47305cd8669b58b0d662e7ffd8a3",
+      "bytes": 91274
+    },
+    "fig_gate_benefit_cost.png": {
+      "sha256": "cd15daa01700ccfb099bac9d91a8d219a20586e67b9e6855bbfd704891562a70",
+      "bytes": 150398
+    },
+    "fig_gate_roc_pr.png": {
+      "sha256": "bcd59a95b934239199327dd5e2009344044e94cd6d56f0c704b57438f50e1f23",
+      "bytes": 136502
+    },
+    "fig_model_family_comparison.png": {
+      "sha256": "823967f0f9556e976760cdba58faff8c120eff6948b7f8e0bc7a17f39ee7b829",
+      "bytes": 114813
+    },
+    "fig_normalisation_control.png": {
+      "sha256": "14ba522850495e3c7bbbc891c0804a5e6da7563e11dde836c7ecfde46d2e4ad6",
+      "bytes": 283722
+    },
+    "fig_scale_mixture_summary.png": {
+      "sha256": "c1acea34327d570ef1a8f210ee9fe48536fd427fb2378b1170ef888bb715d646",
+      "bytes": 271837
+    },
+    "fig_shape_car.png": {
+      "sha256": "fb1ea41f9ca8783e458ff3bcc6d5b30537a0d8a62c6888989b99aa74488ea042",
+      "bytes": 425747
+    },
+    "fig_shape_summary.png": {
+      "sha256": "fb74a7f2e17b920bc8f7ad80c34f3cc95196521818e4e36973ab2797d105c60b",
+      "bytes": 255257
+    },
+    "fig_signed_error_by_horizon.png": {
+      "sha256": "4eed379e9bece22c147b1d26b6eb81b13501b8885fe8997cf7f4e30d2be5677b",
+      "bytes": 209095
+    },
+    "fig_tail_shape.png": {
+      "sha256": "e51530987847240ba6bcc21fe4e113d4638039564dfdc0311fb84c05cb9d32ac",
+      "bytes": 127280
+    },
+    "fig_unit_vs_frame_error.png": {
+      "sha256": "a32384bbd86c083316efbe2a1caf201aa7509bbae288059c23e9fdb83188fb45",
+      "bytes": 138927
+    }
+  },
+  "final": {
+    "paper.tex": {
+      "sha256": "0c887fe12174268688af882e90b48b7aa95d15aef218f3e026bad80e583b5620",
+      "bytes": 42951
+    },
+    "paper.pdf": {
+      "sha256": "f01b2e49f4ee7009aeef80f1c0a19d73e5e3796cf2197ed43e769cc7fddf62eb",
+      "bytes": 3453005
+    }
+  },
+  "outline.json": {
+    "sha256": "eb53e6fdc4c3360c02e45d33d9fdf261270fdb61a3f10045bcfe6b7ca6e5228d",
+    "bytes": 19878
+  },
+  "refs.bib": {
+    "sha256": "4772b23197257df7deb256b2e0d0a0d8a737b46a19d3482b63784c894b7dbf67",
+    "n_entries": 40
+  },
+  "skill_versions": {
+    "paper-orchestra": "0.1.0",
+    "source": "github.com/Ar9av/PaperOrchestra"
+  }
+}
