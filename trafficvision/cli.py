@@ -61,6 +61,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--gif", default=None, help="额外输出 GIF 预览路径")
     p.add_argument("--gif-stride", type=int, default=3, help="GIF 抽帧间隔（越大文件越小）")
     p.add_argument("--max-frames", type=int, default=None, help="只处理前 N 帧（调试用）")
+    p.add_argument("--frame-stride", type=int, default=1,
+                   help="跳帧分析：每 N 帧抽 1 帧检测，中间帧掠过不解码。"
+                        "注意 --max-frames 此时指“被分析的帧数”，"
+                        "对应的源帧数是 N×stride（用于在线化的流效率评估）")
     p.add_argument("--no-render", action="store_true", help="只做检测与预判，不写输出视频")
     p.add_argument("--tracker", default="bytetrack.yaml",
                    help="跟踪器配置：bytetrack / botsort / ocsort / deepocsort / fasttrack / tracktrack")
@@ -141,6 +145,7 @@ def main() -> None:
         accel_std=args.accel_std,
         accel_prior=args.accel_prior,
         max_frames_override=args.max_frames,
+    stride=args.frame_stride,
         use_timestamps=not args.no_timestamps,
         render=not args.no_render,
         tracker=args.tracker,

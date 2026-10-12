@@ -151,7 +151,8 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
                   gate_maneuver: bool = False, nms_iou: float = NMS_IOU,
                   merge_names: bool = True,
                   min_side: float | None = None,
-                  min_area: float = MIN_TARGET_AREA_PX):
+                  min_area: float = MIN_TARGET_AREA_PX,
+                  stride: int = 1):
     """逐帧检测+跟踪，产出逐帧目标列表与全部轨迹对象。"""
     cap = cv2.VideoCapture(str(video))
     fps = info["fps"]
@@ -167,6 +168,12 @@ def _iter_tracked(video: str | Path, model, info: dict, classes: tuple[str, ...]
     times: list[float] = []
 
     while index < max_frames:
+        # 跳帧分析：中间帧用 grab() 掠过（只解复用不解码，开销远低于 read()），
+        # 时间戳仍取自容器，因此运动模型的 dt 与实际间隔一致。
+        if stride > 1:
+            for _ in range(stride - 1):
+                if not cap.grab():
+                    break
         ok, frame = cap.read()
         if not ok:
             break
@@ -624,6 +631,7 @@ def run_clip(
     accel_prior: float = 0.0,
     render: bool = True,
     max_frames_override: int | None = None,
+    stride: int = 1,
     use_timestamps: bool = True,
     tracker: str = TRACKER,
     guard: bool = True,
@@ -684,7 +692,8 @@ def run_clip(
         max_frames, motion_model, accel_std, accel_prior,
         use_timestamps, tracker, guard, coast_frames, horizon, gate_maneuver,
         nms_iou=nms_iou,
-        merge_names=merge_names, min_side=min_side, min_area=min_area)
+        merge_names=merge_names, min_side=min_side, min_area=min_area,
+        stride=stride)
 
     # ------------------------------------------------------------ 静态目标地图
     # 用户方案：非阻挡状态下 ≥80% 的帧被识别 → 该位置写入隐标记；
@@ -891,6 +900,11 @@ def run_clip(
     gif_frames = []
     idx = 0
     while idx < max_frames:
+        # 渲染遍历与第一遍保持同一抽样节奏，否则帧与记录会错位
+        if stride > 1:
+            for _ in range(stride - 1):
+                if not cap.grab():
+                    break
         ok, frame = cap.read()
         if not ok:
             break

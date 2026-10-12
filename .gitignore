@@ -37,6 +37,11 @@ trafficlab-3d/data/
 weights/
 outputs/
 datasets/
+
+# 报告/论文中的实拍画面素材：脱敏定稿前不进仓库，
+# 否则最后做脱敏时要再重写一次 git 历史。
+paper/inputs/figures/fig_output_sample.png
+paper/competition/figures/fig_output_annotated.png
 *.pt
 *.engine
 *.onnx
