@@ -52,9 +52,21 @@
 
 ### 2.3 启动
 
+**必须用项目自己的虚拟环境，并且工作目录在项目根目录。** 用系统 base 的 Python
+会报 `No module named 'trafficvision_gui'`（PySide6 只装在项目 venv 里），
+在用户目录下运行同样会找不到包。
+
+最省事的入口是双击 `tools\启动界面.bat`；等价的手动命令是：
+
 ```powershell
-pip install -r requirements-gui-api.txt
-python -m trafficvision_gui.main
+cd C:\Users\<你>\Desktop\AI+software-videoprer
+.\trafficlab-3d\env\Scripts\python.exe -m trafficvision_gui.main
+```
+
+首次运行前如提示缺依赖：
+
+```powershell
+.\trafficlab-3d\env\Scripts\python.exe -m pip install -r requirements-gui-api.txt
 ```
 
 ---
@@ -111,13 +123,15 @@ WebSocket 建连一次、之后只传帧与结果。
 
 ### 3.5 启动与自测
 
+双击 `tools\启动在线接口.bat`，或手动：
+
 ```powershell
-python -m trafficvision_api.server --port 8600
-# 健康检查
-curl http://127.0.0.1:8600/api/health
-# 交互式文档（FastAPI 自带）
-# 浏览器打开 http://127.0.0.1:8600/docs
+cd C:\Users\<你>\Desktop\AI+software-videoprer
+.\trafficlab-3d\env\Scripts\python.exe -m trafficvision_api.server --port 8600
 ```
+
+启动后：健康检查 `http://127.0.0.1:8600/api/health`，
+交互式文档 `http://127.0.0.1:8600/docs`（FastAPI 自带，可直接在网页上试各个端点）。
 
 ### 3.6 边界（如实说明）
 

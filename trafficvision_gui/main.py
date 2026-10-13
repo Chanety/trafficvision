@@ -10,14 +10,15 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl, QTimer
-from PySide6.QtGui import QFont, QFontDatabase
+from PySide6.QtGui import QAction, QFont, QFontDatabase, QKeySequence
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame,
-    QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
+    QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
     QPlainTextEdit, QProgressBar, QPushButton, QRadioButton, QScrollArea,
-    QSizePolicy, QSlider, QSpinBox, QSplitter, QStatusBar, QVBoxLayout, QWidget,
+    QSizePolicy, QSlider, QSpinBox, QSplitter, QStatusBar, QTabWidget, QToolBar,
+    QVBoxLayout, QWidget,
 )
 
 from . import theme
@@ -79,11 +80,229 @@ class MainWindow(QMainWindow):
         split.setStretchFactor(1, 1)
         split.setStretchFactor(2, 0)
         split.setSizes([340, 760, 360])
-        outer.addWidget(split, 1)
-        outer.addWidget(self._bottom_bar())
 
+        page_offline = QWidget()
+        l1 = QVBoxLayout(page_offline)
+        l1.setContentsMargins(0, 6, 0, 0)
+        l1.addWidget(split, 1)
+        l1.addWidget(self._bottom_bar())
+
+        self.tabs = QTabWidget()
+        self.tabs.addTab(page_offline, "离线分析")
+        self.tabs.addTab(self._online_page(), "在线分析")
+        self.tabs.addTab(self._model_page(), "模型与版本")
+        self.tabs.addTab(self._about_page(), "关于与合规")
+        outer.addWidget(self.tabs, 1)
+
+        self._menu()
+        self._toolbar()
+        self._statusbar()
+
+    # ------------------------------------------------------------------ 菜单/工具栏/状态栏
+    def _menu(self) -> None:
+        m = self.menuBar()
+        f = m.addMenu("文件(&F)")
+        f.addAction(self._act("打开视频…", "Ctrl+O", self.pick_video))
+        f.addAction(self._act("打开输出目录", "Ctrl+Shift+O", self.open_out_dir))
+        f.addSeparator()
+        f.addAction(self._act("退出", "Ctrl+Q", self.close))
+
+        a = m.addMenu("分析(&A)")
+        a.addAction(self._act("开始预判", "F5", self.run))
+        a.addAction(self._act("取消", "Esc", lambda: self.job.cancel()))
+        a.addSeparator()
+        a.addAction(self._act("导出精度报告…", "Ctrl+S", self.export_report))
+
+        v = m.addMenu("视图(&V)")
+        for i, name in enumerate(["离线分析", "在线分析", "模型与版本", "关于与合规"]):
+            v.addAction(self._act(name, f"Ctrl+{i+1}", lambda idx=i: self.tabs.setCurrentIndex(idx)))
+
+        md = m.addMenu("模型(&M)")
+        md.addAction(self._act("刷新权重与场景先验", None, self.refresh_assets))
+        md.addAction(self._act("打开权重目录", None,
+                               lambda: self._open_path(ROOT / "outputs" / "train")))
+        md.addAction(self._act("打开场景先验目录", None,
+                               lambda: self._open_path(ROOT / "outputs" / "scene_prior")))
+
+        h = m.addMenu("帮助(&H)")
+        h.addAction(self._act("使用说明", "F1", lambda: self.tabs.setCurrentIndex(3)))
+        h.addAction(self._act("关于", None, self.show_about))
+
+    def _act(self, text: str, shortcut: str | None, slot) -> QAction:
+        act = QAction(text, self)
+        if shortcut:
+            act.setShortcut(QKeySequence(shortcut))
+        act.triggered.connect(slot)
+        return act
+
+    def _toolbar(self) -> None:
+        tb = QToolBar("主工具栏")
+        tb.setMovable(False)
+        self.addToolBar(tb)
+        tb.addAction(self._act("打开视频", None, self.pick_video))
+        tb.addAction(self._act("开始预判", None, self.run))
+        tb.addAction(self._act("取消", None, lambda: self.job.cancel()))
+        tb.addSeparator()
+        tb.addAction(self._act("打开输出目录", None, self.open_out_dir))
+        tb.addAction(self._act("导出报告", None, self.export_report))
+        tb.addSeparator()
+        tb.addAction(self._act("在线分析", None, lambda: self.tabs.setCurrentIndex(1)))
+        tb.addAction(self._act("模型与版本", None, lambda: self.tabs.setCurrentIndex(2)))
+
+    def _statusbar(self) -> None:
         self.setStatusBar(QStatusBar())
-        self.statusBar().showMessage("未加载视频")
+        self.sb_state = QLabel("未加载视频")
+        self.sb_model = QLabel(f"模型：{self._current_weights().name}")
+        self.sb_dev = QLabel("设备：GPU 0")
+        for w in (self.sb_state, self.sb_model, self.sb_dev):
+            w.setObjectName("subtitle")
+        self.statusBar().addWidget(self.sb_state, 1)
+        self.statusBar().addPermanentWidget(self.sb_model)
+        self.statusBar().addPermanentWidget(self.sb_dev)
+
+    # ------------------------------------------------------------------ 在线分析页
+    def _online_page(self) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(6, 10, 6, 6)
+        g = QGroupBox("接口服务")
+        v = QVBoxLayout(g)
+        row = QHBoxLayout()
+        self.ed_api = QLineEdit("http://127.0.0.1:8600")
+        self.btn_api = QPushButton("检查服务")
+        self.btn_api.clicked.connect(self.check_api)
+        self.lb_api = QLabel("未检查")
+        self.lb_api.setObjectName("subtitle")
+        row.addWidget(QLabel("地址"))
+        row.addWidget(self.ed_api, 1)
+        row.addWidget(self.btn_api)
+        row.addWidget(self.lb_api)
+        v.addLayout(row)
+        hint = QLabel(
+            "接口服务需先启动：双击 tools\\启动在线接口.bat，或运行\n"
+            "    .\\trafficlab-3d\\env\\Scripts\\python.exe -m trafficvision_api.server --port 8600\n"
+            "启动后交互文档在 http://127.0.0.1:8600/docs，可直接在网页上试各端点。")
+        hint.setObjectName("subtitle")
+        hint.setWordWrap(True)
+        v.addWidget(hint)
+        lay.addWidget(g)
+
+        g2 = QGroupBox("逐帧分析通道（WebSocket /ws/analyze）")
+        v2 = QVBoxLayout(g2)
+        info = QLabel(
+            "· POST /api/session 创建会话（会话内模型只加载一次）\n"
+            "· WS   /ws/analyze?session=<id> 推帧 → 收结构化结果\n"
+            "· 控制指令：{\"cmd\":\"stride\",\"value\":2} 跳帧；"
+            "{\"cmd\":\"t\",\"value\":1.23} 指定时间戳\n"
+            "· 服务端只回结构化 JSON，不返回画好的图，渲染由前端负责")
+        info.setWordWrap(True)
+        v2.addWidget(info)
+        lay.addWidget(g2)
+        lay.addStretch(1)
+        return w
+
+    def check_api(self) -> None:
+        import json as _json
+        import urllib.request
+        url = self.ed_api.text().strip().rstrip("/") + "/api/health"
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                data = _json.loads(r.read().decode("utf-8"))
+            self.lb_api.setText(
+                f"在线 ✅  权重={data.get('weights_exists')}  梯度={data.get('horizons')}  "
+                f"场景先验 {len(data.get('scene_priors', []))} 个")
+            self.append_log(f"[接口] {url} 可用")
+        except Exception as exc:
+            self.lb_api.setText("离线 ❌")
+            self.append_log(f"[接口] 连接失败：{type(exc).__name__}: {exc}")
+
+    # ------------------------------------------------------------------ 模型与版本页
+    def _model_page(self) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(6, 10, 6, 6)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("可用权重（outputs/train/*/weights/best.pt）"))
+        b = QPushButton("刷新")
+        b.clicked.connect(self.refresh_assets)
+        row.addWidget(b)
+        row.addStretch(1)
+        lay.addLayout(row)
+        self.lst_weights = QListWidget()
+        lay.addWidget(self.lst_weights, 2)
+        lay.addWidget(QLabel("已有场景先验（outputs/scene_prior/*.json，按机位缓存）"))
+        self.lst_priors = QListWidget()
+        lay.addWidget(self.lst_priors, 1)
+        self.refresh_assets()
+        return w
+
+    def refresh_assets(self) -> None:
+        self.lst_weights.clear()
+        for p in sorted((ROOT / "outputs" / "train").glob("*/weights/best.pt")):
+            self.lst_weights.addItem(f"{p.parent.parent.name:<6}  {p}")
+        if self.lst_weights.count() == 0:
+            self.lst_weights.addItem("（未找到权重，请确认 outputs/train/ 存在）")
+        self.lst_priors.clear()
+        pri = sorted((ROOT / "outputs" / "scene_prior").glob("*.json"))
+        for p in pri:
+            self.lst_priors.addItem(p.stem)
+        if not pri:
+            self.lst_priors.addItem("（暂无缓存；首次跑某机位时会自动生成）")
+        if hasattr(self, "sb_model"):
+            self.sb_model.setText(f"模型：{self._current_weights().name}")
+        self.append_log(f"[资产] 权重 {self.lst_weights.count()} 项，场景先验 {len(pri)} 项")
+
+    def _current_weights(self) -> Path:
+        return ROOT / "outputs" / "train" / "v7" / "weights" / "best.pt"
+
+    # ------------------------------------------------------------------ 关于页
+    def _about_page(self) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(6, 10, 6, 6)
+        g = QGroupBox("关于")
+        v = QVBoxLayout(g)
+        txt = QLabel(
+            f"<b>交通视频短时预判软件</b> v0.3<br>"
+            f"输入 2~30 秒单目视频，输出 0.1 / 0.5 / 1 / 2 秒四个梯度的预判位置与精度报告。<br>"
+            f"整体以 <b>AGPL-3.0</b> 开放；界面框架 PySide6（LGPL-3.0）。<br>"
+            f"项目根目录：{ROOT}")
+        txt.setWordWrap(True)
+        v.addWidget(txt)
+        lay.addWidget(g)
+        g2 = QGroupBox("合规与隐私")
+        v2 = QVBoxLayout(g2)
+        v2.addWidget(QLabel(
+            "· 全部处理在本机完成，视频与帧数据不上传任何服务器。<br>"
+            "· 界面与报告中不出现学校名称、校徽与指导教师信息。<br>"
+            "· 第三方资源的许可证与自研边界见《开源及第三方资源使用清单》。<br>"
+            "· 对外发布素材前需完成人脸与车牌脱敏（详见 docs/29）。"))
+        lay.addWidget(g2)
+        g3 = QGroupBox("快捷键")
+        v3 = QVBoxLayout(g3)
+        v3.addWidget(QLabel(
+            "Ctrl+O 打开视频　Ctrl+Shift+O 打开输出目录　F5 开始预判　Esc 取消<br>"
+            "Ctrl+S 导出报告　Ctrl+1~4 切换页面　F1 回到本页"))
+        lay.addWidget(g3)
+        b = QPushButton("打开设计文档 docs/29")
+        b.clicked.connect(lambda: self._open_path(ROOT / "docs" / "29-GUI与在线分析接口设计.md"))
+        lay.addWidget(b)
+        lay.addStretch(1)
+        return w
+
+    def show_about(self) -> None:
+        QMessageBox.information(
+            self, "关于",
+            "交通视频短时预判软件 v0.3\n\n"
+            "四个预判梯度：0.1 / 0.5 / 1 / 2 秒\n"
+            "整体以 AGPL-3.0 开放，界面框架 PySide6（LGPL-3.0）。\n\n"
+            f"项目根目录：\n{ROOT}")
+
+    @staticmethod
+    def _open_path(p: Path) -> None:
+        import os
+        if p.exists():
+            os.startfile(p if p.is_dir() else p.parent)  # noqa: S606
 
     def _header(self) -> QWidget:
         w = QWidget()
