@@ -1,0 +1,9 @@
+# 图形界面与在线分析接口的额外依赖（在项目主 requirements.txt 之上）
+pyside6==6.12.0
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+# 说明：
+#   · PySide6 采用 LGPL-3.0，可闭源分发；刻意不用 PyQt（GPL-3.0 或商业授权），
+#     以免 GUI 层再叠一层传染性许可。
+#   · 本文件不含任何模型权重；权重走 weights/ 与 outputs/train/，不进仓库。
